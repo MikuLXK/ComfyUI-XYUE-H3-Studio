@@ -6,7 +6,7 @@
 
 - [云端多段式 Skill](https://github.com/MikuLXK/h3-multi-stage-cloud-generation)：生成可粘贴到云端配置节点的多段 JSON。
 - [本地多段式 Skill](https://github.com/MikuLXK/h3-multi-stage-generation)：检查画布、配置阶段、续跑并提交本地工作流。
-- [MiniMax H3 Video Prompt Skill](https://github.com/penposs/minimax-h3-video-prompt)：两个多段式 Skill 使用的外部提示词 Skill。
+- [MiniMax H3 Prompt Writing Skill](https://github.com/MiniMax-AI/MiniMax-H3)：两个多段式 Skill 使用的官方提示词 Skill。
 
 ## 安装
 
