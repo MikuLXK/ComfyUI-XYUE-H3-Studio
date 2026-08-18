@@ -9,6 +9,16 @@ def test_workflows_are_valid_and_node_ids_are_unique():
     for path in workflows:
         data = json.loads(path.read_text(encoding="utf-8-sig"))
         node_types = [node["type"] for node in data["nodes"]]
+        alias_modes = {
+            "XYUE_H3_ImageAsset": "@图片N",
+            "XYUE_H3_VideoAsset": "@视频N",
+            "XYUE_H3_AudioAsset": "@音频N",
+        }
+        assert all(
+            node.get("widgets_values", [None, None, None])[2] == alias_modes[node["type"]]
+            for node in data["nodes"]
+            if node["type"] in alias_modes
+        )
         assert all(isinstance(node.get("mode"), int) for node in data["nodes"])
         assert len([node["id"] for node in data["nodes"]]) == len(set(node["id"] for node in data["nodes"]))
         link_ids = {link[0] for link in data["links"]}
@@ -331,11 +341,11 @@ def test_plugin_registers_upload_controller_and_checkpoint_nodes():
 
     assets = sys.modules[f"{spec.name}.nodes.assets"]
     assert assets.XYUEH3ImageAsset.validate_inputs(
-        assets.NO_IMAGE_SELECTED, False, "@文件名", "未指定", "保持原图"
+        assets.NO_IMAGE_SELECTED, False, "@图片N", "未指定", "保持原图"
     ) is True
     assert assets.XYUEH3VideoAsset.validate_inputs(
-        assets.NO_VIDEO_SELECTED, False, "@文件名", "动作节奏样片", 0, 0, False
+        assets.NO_VIDEO_SELECTED, False, "@视频N", "动作节奏样片", 0, 0, False
     ) is True
     assert assets.XYUEH3AudioAsset.validate_inputs(
-        assets.NO_AUDIO_SELECTED, False, "@文件名", "角色声纹锚点", "角色A", 0, 0, 0, False
+        assets.NO_AUDIO_SELECTED, False, "@音频N", "角色声纹锚点", "角色A", 0, 0, 0, False
     ) is True

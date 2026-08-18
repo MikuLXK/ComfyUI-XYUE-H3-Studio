@@ -612,6 +612,22 @@ def _normalize_workflow_layout(data: dict) -> None:
         groups[3]["title"] = "④ 右侧输出｜生成、保存与预览"
 
 
+def _set_numbered_asset_aliases(data: dict) -> None:
+    alias_modes = {
+        "XYUE_H3_ImageAsset": "@图片N",
+        "XYUE_H3_VideoAsset": "@视频N",
+        "XYUE_H3_AudioAsset": "@音频N",
+    }
+    for node in data.get("nodes", []):
+        alias_mode = alias_modes.get(node.get("type"))
+        if alias_mode is None:
+            continue
+        values = node.setdefault("widgets_values", [])
+        while len(values) <= 2:
+            values.append(None)
+        values[2] = alias_mode
+
+
 def _trim_workflow_to_stage_limit(data: dict) -> None:
     groups = data.get("groups") or []
     remove_group_indexes = {
@@ -665,6 +681,7 @@ def _trim_workflow_to_stage_limit(data: dict) -> None:
 
 def build() -> None:
     data = json.loads(SOURCE.read_text(encoding="utf-8-sig"))
+    _set_numbered_asset_aliases(data)
     # Always rebuild from the checked-in multi-stage seed, so repeated runs do not
     # accumulate optional lanes.
     data["nodes"] = [node for node in data["nodes"] if int(node["id"]) <= 106]
@@ -736,6 +753,7 @@ def build() -> None:
         if path == SOURCE:
             continue
         workflow = json.loads(path.read_text(encoding="utf-8-sig"))
+        _set_numbered_asset_aliases(workflow)
         if sum(node.get("type") == "XYUE_H3_PromptEditor" for node in workflow.get("nodes", [])) > MAX_STAGES:
             _trim_workflow_to_stage_limit(workflow)
         _normalize_workflow_layout(workflow)
