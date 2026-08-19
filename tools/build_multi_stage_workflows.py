@@ -446,6 +446,25 @@ def _annotate_acceleration_modes(data: dict) -> None:
             node.setdefault("properties", {})["xyue_acceleration_modes"] = ["模式3"]
 
 
+def _normalize_stage_acceleration_controls(data: dict) -> None:
+    for node in data.get("nodes", []):
+        if node.get("type") != "XYUE_H3_AccelerationController":
+            continue
+        for item in node.get("inputs", []):
+            if item.get("name") != "enabled":
+                continue
+            item.update({
+                "localized_name": "本阶段加速模式",
+                "name": "mode",
+                "type": "COMBO",
+                "widget": {"name": "mode"},
+                "link": None,
+            })
+        values = list(node.get("widgets_values") or [])
+        current = values[0] if values else "不启用"
+        node["widgets_values"] = ["模式1" if current is True else "不启用" if current is False else str(current)]
+
+
 def _set_stage_group_metadata(data: dict) -> None:
     groups = data.get("groups") or []
     roles = ("materials", "global", "stage_flow", "output")
@@ -739,6 +758,7 @@ def build() -> None:
     for stage, source_ids, mapping, external_sources, external_targets in stage_arguments:
         _clone_stage(data, source_ids, mapping, external_sources, external_targets, stage, clone_nodes=False, update_metadata=False)
 
+    _normalize_stage_acceleration_controls(data)
     _ensure_multistage_config(data)
     _update_layout(data)
     _ensure_video_board(data)
@@ -753,6 +773,7 @@ def build() -> None:
         if path == SOURCE:
             continue
         workflow = json.loads(path.read_text(encoding="utf-8-sig"))
+        _normalize_stage_acceleration_controls(workflow)
         _set_numbered_asset_aliases(workflow)
         if sum(node.get("type") == "XYUE_H3_PromptEditor" for node in workflow.get("nodes", [])) > MAX_STAGES:
             _trim_workflow_to_stage_limit(workflow)

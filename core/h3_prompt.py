@@ -28,6 +28,7 @@ KEYFRAME_ALIASES = {
     "I2VA": {
         "@首帧": "<Picture 1>",
         "@第一帧": "<Picture 1>",
+        "@尾帧": "<Picture 1>",
         "@上一段尾帧": "<Picture 1>",
     },
     "FL2VA": {

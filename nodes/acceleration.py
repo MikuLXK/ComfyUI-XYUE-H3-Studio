@@ -162,7 +162,7 @@ class XYUEH3GlobalLoRAManager(io.ComfyNode):
 
 
 class XYUEH3AccelerationController(io.ComfyNode):
-    """Lazily select the original model or the complete acceleration branch."""
+    """Lazily select one acceleration branch for a single stage."""
 
     @classmethod
     def define_schema(cls):
@@ -172,12 +172,11 @@ class XYUEH3AccelerationController(io.ComfyNode):
             category=CATEGORY,
             description="默认关闭并直接使用原始模型；开启后才执行并使用完整 LoRA、注意力和 TE-Speed 加速链。",
             inputs=[
-                io.Boolean.Input(
-                    "enabled",
-                    display_name="启用完整加速",
-                    default=False,
-                    label_on="已开启",
-                    label_off="已关闭",
+                io.Combo.Input(
+                    "mode",
+                    display_name="本阶段加速模式",
+                    options=list(GLOBAL_ACCELERATION_MODES),
+                    default=GLOBAL_ACCELERATION_MODES[0],
                 ),
                 io.Model.Input("original_model", display_name="原始模型", lazy=True, optional=True),
                 io.Model.Input("accelerated_model", display_name="模式1 模型", lazy=True, optional=True),
@@ -188,50 +187,44 @@ class XYUEH3AccelerationController(io.ComfyNode):
             outputs=[
                 io.Model.Output(display_name="最终模型"),
                 io.String.Output(display_name="加速状态"),
+                GLOBAL_ACCELERATION_CONTROL.Output(display_name="本阶段加速控制"),
             ],
         )
 
     @classmethod
-    def check_lazy_status(cls, enabled, original_model=None, accelerated_model=None, hq_model=None, experimental_model=None, global_acceleration=None):
-        mode = cls._effective_mode(enabled, global_acceleration)
-        if mode == "模式1" and accelerated_model is None:
+    def check_lazy_status(cls, mode, original_model=None, accelerated_model=None, hq_model=None, experimental_model=None, global_acceleration=None):
+        selected_mode = cls._effective_mode(mode, global_acceleration)
+        if selected_mode == "模式1" and accelerated_model is None:
             return ["accelerated_model"]
-        if mode == "模式2" and hq_model is None:
+        if selected_mode == "模式2" and hq_model is None:
             return ["hq_model"]
-        if mode == "模式3" and experimental_model is None:
+        if selected_mode == "模式3" and experimental_model is None:
             return ["experimental_model"]
-        if mode == "不启用" and original_model is None:
+        if selected_mode == "不启用" and original_model is None:
             return ["original_model"]
         return []
 
     @classmethod
-    def _effective_enabled(cls, enabled, global_acceleration=None):
-        return cls._effective_mode(enabled, global_acceleration) != "不启用"
-
-    @classmethod
-    def _effective_mode(cls, enabled, global_acceleration=None):
+    def _effective_mode(cls, mode, global_acceleration=None):
         control = dict(global_acceleration or {})
         if control.get("schema") != GLOBAL_ACCELERATION_CONTROL_SCHEMA:
-            return "模式1" if enabled else "不启用"
-        mode = normalize_acceleration_mode(control.get("mode"))
-        return mode if mode in GLOBAL_ACCELERATION_MODES else ("模式1" if enabled else "不启用")
+            return normalize_acceleration_mode(mode)
+        return normalize_acceleration_mode(control.get("mode"))
 
     @classmethod
-    def execute(cls, enabled, original_model=None, accelerated_model=None, hq_model=None, experimental_model=None, global_acceleration=None):
-        mode = cls._effective_mode(enabled, global_acceleration)
-        selected = {"不启用": original_model, "模式1": accelerated_model, "模式2": hq_model, "模式3": experimental_model}[mode]
+    def execute(cls, mode, original_model=None, accelerated_model=None, hq_model=None, experimental_model=None, global_acceleration=None):
+        selected_mode = cls._effective_mode(mode, global_acceleration)
+        selected = {"不启用": original_model, "模式1": accelerated_model, "模式2": hq_model, "模式3": experimental_model}[selected_mode]
         if selected is None:
             raise ValueError("总加速控制器缺少当前分支的模型输入")
-        control = dict(global_acceleration or {})
-        control_mode = normalize_acceleration_mode(control.get("mode")) if control.get("schema") == GLOBAL_ACCELERATION_CONTROL_SCHEMA else mode
+        stage_control = {"schema": GLOBAL_ACCELERATION_CONTROL_SCHEMA, "mode": selected_mode}
         report = {
-            "enabled": mode != "不启用",
-            "selected": mode,
-            "mode": mode,
-            "global_mode": control_mode,
-            "stage_enabled": bool(enabled),
+            "enabled": selected_mode != "不启用",
+            "selected": selected_mode,
+            "mode": selected_mode,
+            "source": "global" if dict(global_acceleration or {}).get("schema") == GLOBAL_ACCELERATION_CONTROL_SCHEMA else "stage",
         }
-        return io.NodeOutput(selected, json.dumps(report, ensure_ascii=False, indent=2))
+        return io.NodeOutput(selected, json.dumps(report, ensure_ascii=False, indent=2), stage_control)
 
 
 class XYUEH3GlobalAccelerationManager(io.ComfyNode):

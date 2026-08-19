@@ -473,8 +473,8 @@ def configure_api_prompt(api_document: dict, workflow: dict) -> dict:
         inputs = api_node.setdefault("inputs", {})
         values = node.get("widgets_values")
         if node_type == "XYUE_H3_AccelerationController":
-            enabled = values[0] if isinstance(values, list) else values
-            inputs["enabled"] = bool(enabled)
+            mode = values[0] if isinstance(values, list) else values
+            inputs["mode"] = normalize_acceleration_mode(mode)
             updated += 1
             continue
         if not isinstance(values, list):
@@ -492,12 +492,11 @@ def _set_acceleration(workflow: dict, settings: dict, *, require_global: bool = 
     if not settings:
         return
     if "enabled" in settings:
-        enabled = bool(settings["enabled"])
+        mode = "模式1" if bool(settings["enabled"]) else "不启用"
         for node in workflow.get("nodes", []):
             if node.get("type") != "XYUE_H3_AccelerationController":
                 continue
-            current = node.get("widgets_values")
-            node["widgets_values"] = [enabled] if isinstance(current, list) else enabled
+            node["widgets_values"] = [mode]
     if "global_mode" in settings:
         mode = normalize_acceleration_mode(settings["global_mode"])
         manager = next(

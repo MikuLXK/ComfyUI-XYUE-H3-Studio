@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -14,8 +13,57 @@ from server import PromptServer
 
 from .api_profiles import delete_profile, get_profile, list_profiles, save_profile
 from .prompt_api import request_prompt
+from ..core.aggregate_workflow import PLUGIN_ROOT, build_aggregate_workflow, config_from_text, dependency_report, load_workflow
 
 routes = PromptServer.instance.routes
+STUDIO_UI_ROOT = (PLUGIN_ROOT / "studio_ui").resolve()
+
+
+def _studio_file(asset: str) -> Path:
+    relative = str(asset or "index.html").strip("/") or "index.html"
+    target = (STUDIO_UI_ROOT / relative).resolve()
+    if target != STUDIO_UI_ROOT and STUDIO_UI_ROOT not in target.parents:
+        raise web.HTTPBadRequest(text="非法静态资源路径")
+    if target.is_dir():
+        target = target / "index.html"
+    if not target.is_file():
+        raise web.HTTPNotFound(text="Studio UI 资源不存在")
+    return target
+
+
+@routes.get("/xyue-h3/studio")
+async def xyue_studio_index(request):
+    del request
+    return web.FileResponse(_studio_file("index.html"), headers={"Cache-Control": "no-cache"})
+
+
+@routes.get("/xyue-h3/studio/{asset:.*}")
+async def xyue_studio_asset(request):
+    asset = request.match_info.get("asset", "")
+    target = _studio_file(asset)
+    cache_control = "public, max-age=31536000, immutable" if target.parent.name == "assets" else "no-cache"
+    return web.FileResponse(target, headers={"Cache-Control": cache_control})
+
+
+@routes.get("/xyue-h3/aggregate/templates")
+async def xyue_aggregate_templates(request):
+    del request
+    templates = []
+    for name in ("全程多参考短剧", "多段循环"):
+        workflow = load_workflow(name)
+        templates.append({
+            "name": name,
+            "stages": sum(node.get("type") == "XYUE_H3_PromptEditor" for node in workflow.get("nodes", [])),
+            "dependencies": dependency_report(workflow),
+        })
+    return web.json_response({"templates": templates})
+
+
+@routes.post("/xyue-h3/aggregate/preview")
+async def xyue_aggregate_preview(request):
+    payload = await request.json()
+    workflow, report = build_aggregate_workflow(config_from_text(payload))
+    return web.json_response({"report": report, "workflow": workflow})
 
 
 def _docs_dir() -> Path:
@@ -113,3 +161,5 @@ async def xyue_list_documents(request):
     del request
     docs = [{"filename": path.name, "size": path.stat().st_size} for path in _docs_dir().iterdir() if path.is_file()]
     return web.json_response({"documents": sorted(docs, key=lambda item: item["filename"])})
+
+
