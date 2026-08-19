@@ -14,6 +14,7 @@ from server import PromptServer
 from .api_profiles import delete_profile, get_profile, list_profiles, save_profile
 from .prompt_api import request_prompt
 from ..core.aggregate_workflow import PLUGIN_ROOT, build_aggregate_workflow, config_from_text, dependency_report, load_workflow
+from ..core.material_library import scan_material_library
 
 routes = PromptServer.instance.routes
 STUDIO_UI_ROOT = (PLUGIN_ROOT / "studio_ui").resolve()
@@ -64,6 +65,12 @@ async def xyue_aggregate_preview(request):
     payload = await request.json()
     workflow, report = build_aggregate_workflow(config_from_text(payload))
     return web.json_response({"report": report, "workflow": workflow})
+
+
+@routes.get("/xyue-h3/materials")
+async def xyue_material_library(request):
+    del request
+    return web.json_response({"materials": scan_material_library(Path(folder_paths.get_input_directory()))})
 
 
 def _docs_dir() -> Path:

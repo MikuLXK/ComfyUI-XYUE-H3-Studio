@@ -173,9 +173,18 @@ def test_aggregate_build_removes_cloud_config_node(monkeypatch):
                 "sampling": {"sampling_preset": "快速单次（推荐）"},
             }],
         },
+        "material_overrides": [{
+            "kind": "image",
+            "slot": 1,
+            "file": "hero.png",
+            "enabled": True,
+            "alias_mode": "@图片N",
+            "role": "角色定妆图",
+            "fit_mode": "保持原图",
+        }],
     }
 
-    workflow, _ = build_aggregate_workflow(plan)
+    workflow, report = build_aggregate_workflow(plan)
     assert all(node["type"] != "XYUE_H3_MultiStageConfig" for node in workflow["nodes"])
     assert all(
         input_item.get("link") is None
@@ -198,3 +207,15 @@ def test_aggregate_build_removes_cloud_config_node(monkeypatch):
         "minimax_h3_latent_upscaler_3d_fp16.safetensors",
         "none",
     ]
+    image = next(
+        node for node in workflow["nodes"]
+        if node["type"] == "XYUE_H3_ImageAsset" and node["widgets_values"][0] == "hero.png"
+    )
+    assert image["widgets_values"][:5] == [
+        "hero.png",
+        True,
+        "@图片N",
+        "角色定妆图",
+        "保持原图",
+    ]
+    assert report["materials"]["active_counts"]["image"] == 1

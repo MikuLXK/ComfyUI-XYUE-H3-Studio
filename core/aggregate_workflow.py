@@ -323,12 +323,14 @@ def build_aggregate_workflow(plan: dict[str, Any]) -> tuple[dict[str, Any], dict
     for index, duration in enumerate(durations):
         generation["stages"][index]["duration"] = duration
 
+    material_overrides = list(plan.get("material_overrides") or [])
     configured = configure_workflow(
         copy.deepcopy(workflow),
         prompts,
         durations,
         generation=generation,
         acceleration={"global_mode": "不启用"},
+        material_overrides=material_overrides,
         models=list(plan["models"]),
         stage_count=stage_count,
     )
@@ -345,6 +347,7 @@ def build_aggregate_workflow(plan: dict[str, Any]) -> tuple[dict[str, Any], dict
         "acceleration_modes": modes,
         "dependencies": dependencies,
         "execution": "canonical_workflow_template",
+        "materials": configured.get("extra", {}).get("xyue_h3_multi_stage", {}).get("materials", {}),
     }
     return configured, report
 
