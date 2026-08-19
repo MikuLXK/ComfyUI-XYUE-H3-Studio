@@ -84,11 +84,8 @@ class XYUEH3VideoBoard(io.ComfyNode):
         videos = (stage1_video, stage2_video, stage3_video, stage4_video, stage5_video)
         reports = (stage1_report, stage2_report, stage3_report, stage4_report, stage5_report)
         needed = []
-        for index in range(1, _stage_count(studio_control) + 1):
-            if videos[index - 1] is None or videos[index - 1] is MISSING:
-                needed.append(f"stage{index}_video")
-            if reports[index - 1] is None or reports[index - 1] is MISSING:
-                needed.append(f"stage{index}_report")
+        if videos[0] is None or videos[0] is MISSING:
+            needed.append("stage1_video")
         return needed or None
 
     @classmethod
@@ -101,28 +98,35 @@ class XYUEH3VideoBoard(io.ComfyNode):
         active_count = _stage_count(studio_control)
         stages = []
         previews = []
-        active_videos = list(videos[:active_count])
-        if any(video is None or video is MISSING for video in active_videos):
-            raise ValueError("启用阶段缺少视频输出。")
+        active_videos = []
+        for video in videos[:active_count]:
+            if video is None or video is MISSING:
+                break
+            active_videos.append(video)
+        if not active_videos:
+            raise ValueError("没有可预览的阶段视频输出。")
         for index, report in enumerate(reports, start=1):
             saved = _saved_result(report)
+            video_available = index <= len(active_videos)
             stages.append({
                 "slot": f"stage{index}",
                 "active": index <= active_count,
                 "report": report,
-                "available": index <= active_count and saved is not None,
+                "available": video_available,
             })
-            if index <= active_count and saved is not None:
+            if video_available and saved is not None:
                 previews.append(saved)
         final_video, _ = concatenate_videos(active_videos)
         saved = save_stage_video(final_video, filename_prefix, format, codec, prompt=cls.hidden.prompt, extra_pnginfo=cls.hidden.extra_pnginfo)
         previews.append(ui.SavedResult(saved.file, saved.subfolder, io.FolderType.output))
+        complete = len(active_videos) == active_count
         payload = {
             "schema": "xyue-h3/video-board-v1",
             "layout": "3x2",
             "stages": stages,
             "final_file": saved.full_path,
-            "status": "saved_and_previewed",
+            "completed_stage_count": len(active_videos),
+            "status": "saved_and_previewed" if complete else "partial_preview",
         }
         preview = ui.PreviewVideo(previews)
         return io.NodeOutput(final_video, json.dumps(payload, ensure_ascii=False, indent=2), ui=preview)
