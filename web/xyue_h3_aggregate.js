@@ -350,6 +350,155 @@ function renderCanvasAssetDock(document, input, materials, onToggle) {
   }
 }
 
+function installMentionPicker(document, input, getMaterials) {
+  if (input.__xyueMentionPicker) return;
+  input.__xyueMentionPicker = true;
+  let menu;
+  let selected = 0;
+
+  const close = () => {
+    menu?.remove();
+    menu = undefined;
+  };
+  const referenceAtCursor = () => {
+    const cursor = input.selectionStart ?? 0;
+    const prefix = input.value.slice(0, cursor);
+    const start = Math.max(prefix.lastIndexOf("@"), prefix.lastIndexOf("<"));
+    if (start < 0) return null;
+    const trigger = prefix[start];
+    const query = prefix.slice(start + 1);
+    if (/\n/.test(query) || (trigger === "@" && /\s/.test(query)) || (trigger === "<" && />/.test(query))) return null;
+    return { cursor, start, trigger, query: query.toLowerCase() };
+  };
+  const choose = (item, reference) => {
+    const match = referenceAtCursor();
+    if (!match) return;
+    promptValue(input, `${input.value.slice(0, match.start)}${reference}${input.value.slice(match.cursor)}`);
+    input.selectionStart = input.selectionEnd = match.start + reference.length;
+    input.focus();
+    close();
+  };
+  const show = () => {
+    const match = referenceAtCursor();
+    if (!match) {
+      close();
+      return;
+    }
+    const materials = getMaterials().assets.filter((item) => item.imported && item.enabled);
+    const rows = materials.filter((item) => {
+      const value = match.trigger === "@" ? `${item.alias} ${item.file}` : `${item.token} ${item.file}`;
+      return value.toLowerCase().includes(match.query);
+    });
+    if (!rows.length) {
+      close();
+      return;
+    }
+    close();
+    selected = 0;
+    menu = document.createElement("div");
+    menu.className = "xyue-mention-picker";
+    const rect = input.getBoundingClientRect();
+    Object.assign(menu.style, {
+      position: "fixed",
+      zIndex: "20000",
+      left: `${rect.left}px`,
+      top: `${rect.bottom + 4}px`,
+      width: `${rect.width}px`,
+      maxHeight: "300px",
+      overflowY: "auto",
+      padding: "5px",
+      border: "1px solid #aeb6bd",
+      borderRadius: "5px",
+      background: "#fff",
+      boxShadow: "0 10px 24px #1f242833",
+      boxSizing: "border-box",
+    });
+    rows.forEach((item, index) => {
+      const reference = match.trigger === "@" ? item.alias : item.token;
+      const row = document.createElement("button");
+      row.type = "button";
+      row.dataset.index = String(index);
+      Object.assign(row.style, {
+        display: "grid",
+        gridTemplateColumns: "52px minmax(0, 1fr)",
+        alignItems: "center",
+        gap: "10px",
+        width: "100%",
+        minHeight: "58px",
+        padding: "4px 7px",
+        border: "0",
+        borderRadius: "4px",
+        background: index === 0 ? "#e9f1fb" : "transparent",
+        color: "#252a2f",
+        cursor: "pointer",
+        textAlign: "left",
+      });
+      const preview = document.createElement("span");
+      Object.assign(preview.style, {
+        width: "52px",
+        height: "52px",
+        display: "grid",
+        placeItems: "center",
+        overflow: "hidden",
+        borderRadius: "4px",
+        background: "#eef1f3",
+        color: referenceColor(item.kind),
+        fontWeight: "800",
+      });
+      const url = materialPreviewUrl(item);
+      if (url) {
+        const image = document.createElement("img");
+        image.src = url;
+        image.alt = "";
+        Object.assign(image.style, { width: "100%", height: "100%", objectFit: "cover" });
+        preview.append(image);
+      } else {
+        preview.textContent = item.kind === "image" ? "P" : item.kind === "video" ? "V" : "A";
+      }
+      const copy = document.createElement("span");
+      copy.style.minWidth = "0";
+      const name = document.createElement("strong");
+      name.textContent = reference;
+      Object.assign(name.style, { display: "block", color: referenceColor(item.kind), fontSize: "12px" });
+      const filename = document.createElement("small");
+      filename.textContent = item.file;
+      Object.assign(filename.style, { display: "block", marginTop: "3px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#697078" });
+      copy.append(name, filename);
+      row.append(preview, copy);
+      row.onmousedown = (event) => event.preventDefault();
+      row.onclick = () => choose(item, reference);
+      menu.append(row);
+    });
+    document.body.append(menu);
+  };
+
+  input.addEventListener("input", show);
+  input.addEventListener("click", show);
+  input.addEventListener("keydown", (event) => {
+    if (!menu) return;
+    const rows = [...menu.querySelectorAll("button")];
+    if (event.key === "Escape") {
+      event.preventDefault();
+      close();
+      return;
+    }
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      selected = (selected + (event.key === "ArrowDown" ? 1 : -1) + rows.length) % rows.length;
+      rows.forEach((row, index) => { row.style.background = index === selected ? "#e9f1fb" : "transparent"; });
+      rows[selected]?.scrollIntoView({ block: "nearest" });
+      return;
+    }
+    if (event.key === "Enter" || event.key === "Tab") {
+      event.preventDefault();
+      rows[selected]?.click();
+    }
+  });
+  document.addEventListener("mousedown", (event) => {
+    if (menu && event.target !== input && !menu.contains(event.target)) close();
+  }, { passive: true });
+}
+
 function mountIframeReferenceTools(frame, getMaterials, onToggle) {
   let timer;
   const install = () => {
@@ -361,58 +510,13 @@ function mountIframeReferenceTools(frame, getMaterials, onToggle) {
     const materials = allMaterials.filter((item) => item.enabled);
     renderCanvasAssetDock(document, input, allMaterials, onToggle);
     renderPromptHighlight(document, input, materials);
-    const host = input.parentElement;
-    if (!host) return;
-    let bar = host.querySelector(".xyue-reference-tools");
-    if (!bar) {
-      bar = document.createElement("div");
-      bar.className = "xyue-reference-tools";
-      Object.assign(bar.style, { display: "flex", flexWrap: "wrap", gap: "5px", margin: "7px 0", alignItems: "center" });
-      host.insertBefore(bar, input);
-    }
-    bar.replaceChildren();
-    const title = document.createElement("small");
-    title.textContent = "快速引用";
-    title.style.cssText = "color:#6b737b;font-weight:700;margin-right:3px";
-    bar.append(title);
-    const add = (label, value, color) => {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.textContent = label;
-      button.title = `插入 ${value}`;
-      button.style.cssText = `border:1px solid ${color};border-radius:4px;padding:3px 7px;background:${color}22;color:${color};cursor:pointer;font-size:11px`;
-      button.onclick = () => addReference(input, value);
-      bar.append(button);
-    };
-    materials.forEach((item) => {
-      const color = item.kind === "image" ? "#2f6feb" : item.kind === "video" ? "#b05aef" : "#c37b19";
-      add(`${item.alias} / ${item.token}`, item.alias, color);
-      add(item.token, item.token, color);
-    });
+    installMentionPicker(document, input, getMaterials);
     const status = [...document.querySelectorAll(".prompt-foot span")].find((node) => node.textContent.includes("缺少 H3 标准字段"));
     if (status) {
       status.textContent = "自然语言提示词可直接使用";
       status.parentElement?.classList.remove("is-invalid");
       status.parentElement?.classList.add("is-valid");
     }
-    let report = host.querySelector(".xyue-reference-report");
-    if (!report) {
-      report = document.createElement("div");
-      report.className = "xyue-reference-report";
-      Object.assign(report.style, { margin: "2px 0 8px", fontSize: "11px", lineHeight: "1.5" });
-      host.insertBefore(report, input);
-    }
-    report.replaceChildren();
-    const reportTitle = document.createElement("span");
-    reportTitle.textContent = materials.length ? "当前画布素材：" : "当前镜头无画布素材";
-    reportTitle.style.color = "#6b737b";
-    report.append(reportTitle);
-    materials.forEach((item) => {
-      const token = document.createElement("b");
-      token.textContent = `${item.alias} ${item.token}`;
-      token.style.cssText = `color:${item.kind === "image" ? "#2f6feb" : item.kind === "video" ? "#b05aef" : "#c37b19"};margin-left:5px`;
-      report.append(token);
-    });
   };
   timer = window.setInterval(install, 350);
   install();
@@ -454,12 +558,22 @@ function mountStudio(node) {
   });
   widget.computeLayoutSize = () => ({ minHeight: FRAME_HEIGHT, minWidth: 1380 });
 
-  const sendConfig = () => {
+  const sendConfig = async () => {
     const config = { ...readConfig(configWidget), ...canvasMaterialOverrides(node) };
+    const studioId = config.studio_id || `node-${node.id}`;
+    try {
+      await fetch("/xyue-h3/materials/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ studio_id: studioId, material_overrides: config.material_overrides }),
+      });
+    } catch {
+      // The backend may still be restarting; the next Studio sync retries.
+    }
     frame.contentWindow?.postMessage({
       type: "xyue-h3:aggregate-init",
       config,
-      storageKey: config.studio_id || `node-${node.id}`,
+      storageKey: studioId,
     }, window.location.origin);
   };
   const onMessage = (event) => {

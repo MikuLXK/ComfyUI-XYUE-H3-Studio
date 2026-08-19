@@ -15,6 +15,7 @@ from .api_profiles import delete_profile, get_profile, list_profiles, save_profi
 from .prompt_api import request_prompt
 from ..core.aggregate_workflow import PLUGIN_ROOT, build_aggregate_workflow, config_from_text, dependency_report, load_workflow
 from ..core.material_library import scan_material_library
+from ..core.material_sessions import load_material_session, save_material_session
 
 routes = PromptServer.instance.routes
 STUDIO_UI_ROOT = (PLUGIN_ROOT / "studio_ui").resolve()
@@ -63,6 +64,8 @@ async def xyue_aggregate_templates(request):
 @routes.post("/xyue-h3/aggregate/preview")
 async def xyue_aggregate_preview(request):
     payload = await request.json()
+    if "material_overrides" not in payload:
+        payload["material_overrides"] = load_material_session(payload.get("studio_id", ""))
     workflow, report = build_aggregate_workflow(config_from_text(payload))
     return web.json_response({"report": report, "workflow": workflow})
 
@@ -71,6 +74,19 @@ async def xyue_aggregate_preview(request):
 async def xyue_material_library(request):
     del request
     return web.json_response({"materials": scan_material_library(Path(folder_paths.get_input_directory()))})
+
+
+@routes.post("/xyue-h3/materials/session")
+async def xyue_save_material_session(request):
+    payload = await request.json()
+    overrides = payload.get("material_overrides")
+    if not isinstance(overrides, list):
+        raise web.HTTPBadRequest(text="material_overrides 必须是数组")
+    try:
+        save_material_session(payload.get("studio_id", ""), overrides)
+    except ValueError as exc:
+        raise web.HTTPBadRequest(text=str(exc)) from exc
+    return web.json_response({"ok": True, "count": len(overrides)})
 
 
 def _docs_dir() -> Path:
