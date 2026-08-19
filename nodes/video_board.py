@@ -84,8 +84,9 @@ class XYUEH3VideoBoard(io.ComfyNode):
         videos = (stage1_video, stage2_video, stage3_video, stage4_video, stage5_video)
         reports = (stage1_report, stage2_report, stage3_report, stage4_report, stage5_report)
         needed = []
-        if videos[0] is None or videos[0] is MISSING:
-            needed.append("stage1_video")
+        for index in range(1, _stage_count(studio_control) + 1):
+            if videos[index - 1] is None or videos[index - 1] is MISSING:
+                needed.append(f"stage{index}_video")
         return needed or None
 
     @classmethod
