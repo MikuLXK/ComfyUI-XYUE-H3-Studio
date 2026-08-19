@@ -41,10 +41,10 @@ SAMPLING_PRESETS: Final = {
     },
     "高品质双段": {
         "mode": "双段采样",
-        "coarse_steps": 2,
-        "upscale_factor": 1.2,
+        "coarse_steps": 4,
+        "upscale_factor": 1.5,
         "refine_pass": True,
-        "extend_sigmas": 2,
+        "extend_sigmas": 1,
     },
 }
 

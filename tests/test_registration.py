@@ -157,6 +157,8 @@ def test_workflows_are_valid_and_node_ids_are_unique():
             assert "1 张原图时占 <Picture 2>，8 张原图时占 <Picture 9>" in notes
         for selector in (node for node in data["nodes"] if node["type"] == "XYUE_H3_ModeModelSelector"):
             assert all(selector["widgets_values"][index] for index in range(1, 6))
+            assert selector["widgets_values"][6] == "minimax_h3_latent_upscaler_3d_fp16.safetensors"
+            assert selector["widgets_values"][7] == "none"
         for image_asset in (node for node in data["nodes"] if node["type"] == "XYUE_H3_ImageAsset"):
             assert image_asset["widgets_values"][0] == "未选择图片"
             assert image_asset["widgets_values"][3] == "未指定"
@@ -338,6 +340,13 @@ def test_plugin_registers_upload_controller_and_checkpoint_nodes():
     assert not {"sampling_mode", "coarse_steps", "upscale_factor", "refine_pass", "extend_sigmas"} & studio_inputs.keys()
     stage_inputs = {input_spec.id: input_spec for input_spec in stage.inputs}
     assert not {"sampling_mode", "coarse_steps", "upscale_factor", "refine_pass", "extend_sigmas"} & stage_inputs.keys()
+    selector_inputs = {
+        input_spec.id: input_spec
+        for input_spec in schemas["XYUE_H3_ModeModelSelector"].inputs
+    }
+    assert selector_inputs["latent_upscale_model"].default == "minimax_h3_latent_upscaler_3d_fp16.safetensors"
+    assert selector_inputs["tiny_vae"].default == "none"
+    assert "none" in selector_inputs["tiny_vae"].options
 
     assets = sys.modules[f"{spec.name}.nodes.assets"]
     assert assets.XYUEH3ImageAsset.validate_inputs(

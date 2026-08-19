@@ -33,6 +33,14 @@ python_embeded\python.exe -m pip install -r ComfyUI\custom_nodes\ComfyUI-XYUE-H3
 5. 云端部署时，将 `XYUE_多段云端配置` 节点接入多段工作流，粘贴 `xyue.h3.multi-stage-cloud-config/v1` JSON。模型、VAE 和 LoRA 保持工作流预配置。
 6. 多段画布会按 `stage_count` 自动将未启用阶段整区 Mute；全局加速模式也会只保留当前分支，其余加速节点自动 Mute。后端仍保留 lazy 分支选择作为执行层安全控制。
 
+## H3 Latent 双段精修
+
+选择“高品质双段”时，XYUE 使用与 [H3 Latent Upscaler 插件](https://github.com/LBH-123-AI/Comfyui_Minimax_h3_latent_Upscaler) 示例一致的流程：低分辨率第一次采样、H3 3D latent 神经网络放大、conditioning 尺寸同步，再进行高分辨率第二次采样。低噪声 sigma 尾段会按余弦曲线加密，参考了 [MinimaxH3 双采样 V2 工作流](https://github.com/yichengup/ComfyUI-YCNodes-MiniMax-H3) 的 `H3SigmaRefiner → SplitSigmas` 方案。
+
+放大权重来自 [LBH-123-AI/Minimax_h3_latent_Upscaler](https://huggingface.co/LBH-123-AI/Minimax_h3_latent_Upscaler)，放入 `ComfyUI/models/latent_upscale_models/`。选择“高品质双段”后会增加第二次采样和精修阶段显存占用。
+
+`tiny_vae` 只用于采样过程中的实时预览，不影响最终视频质量。该功能需要已安装的 `ComfyUI-KJNodes`。下拉框会完整读取 `ComfyUI/models/vae_approx/`，默认使用 `none`；若所选解码器的 latent 通道数与 H3 不匹配，KJ 预览器会忽略它并回退到普通预览。
+
 ## 加速控制
 
 - T2VA、I2VA、FL2VA、L2VA 使用独立的 `XYUE_H3_LoRASelector`；节点动态读取 ComfyUI 的 LoRA 目录，也可选择“不使用 LoRA”直接旁路。

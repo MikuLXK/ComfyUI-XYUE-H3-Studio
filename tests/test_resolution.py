@@ -1,4 +1,4 @@
-from core.resolution import RESOLUTION_PRESETS_16_9, align_duration, native_canvas, preset_canvas
+from core.resolution import RESOLUTION_PRESETS_16_9, align_duration, downscale_canvas, native_canvas, preset_canvas
 
 
 def test_all_locked_16_9_resolutions():
@@ -17,3 +17,10 @@ def test_frame_grid():
         frames, actual = align_duration(seconds)
         assert frames % 17 == 5
         assert actual >= seconds
+
+
+def test_learned_upscale_base_canvas_is_smaller_and_aligned():
+    width, height = downscale_canvas(864, 480, 1.5)
+
+    assert (width, height) == (576, 320)
+    assert width % 32 == 0 and height % 32 == 0

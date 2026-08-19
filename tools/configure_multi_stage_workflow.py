@@ -99,6 +99,7 @@ API_WIDGET_INPUTS = {
     "XYUE_H3_ModeModelSelector": (
         ("mode", 0), ("base_model", 1), ("reference_model", 2),
         ("language_model", 3), ("video_vae", 4), ("audio_vae", 5),
+        ("latent_upscale_model", 6), ("tiny_vae", 7),
     ),
     "XYUE_H3_MultiStageConfig": (("config_text", 0),),
 }
@@ -110,6 +111,8 @@ MODEL_WIDGET_FIELDS = {
     "language_model": 3,
     "video_vae": 4,
     "audio_vae": 5,
+    "latent_upscale_model": 6,
+    "tiny_vae": 7,
 }
 
 TE_WIDGET_FIELDS = {
@@ -168,6 +171,8 @@ MODEL_FOLDERS = {
     "language_model": "text_encoders",
     "video_vae": "vae",
     "audio_vae": "vae",
+    "latent_upscale_model": "latent_upscale_models",
+    "tiny_vae": "vae_approx",
 }
 
 MODE_KEYS = {
@@ -768,7 +773,7 @@ def inspect_models(workflow: dict) -> list[dict]:
     entries: list[dict] = []
     for node in _stage_nodes(workflow, "XYUE_H3_ModeModelSelector"):
         values = list(node.get("widgets_values") or [])
-        values.extend([None] * (6 - len(values)))
+        values.extend([None] * (max(MODEL_WIDGET_FIELDS.values()) + 1 - len(values)))
         entries.append({
             "node_id": node.get("id"),
             "title": node.get("title") or node.get("type"),
@@ -778,6 +783,8 @@ def inspect_models(workflow: dict) -> list[dict]:
             "language_model": values[3],
             "video_vae": values[4],
             "audio_vae": values[5],
+            "latent_upscale_model": values[6],
+            "tiny_vae": values[7] or "none",
         })
     return entries
 
@@ -837,6 +844,8 @@ def list_available_models() -> dict[str, list[str]]:
         "diffusion_models": _scan_folder(MODELS_DIR / "diffusion_models"),
         "text_encoders": _scan_folder(MODELS_DIR / "text_encoders"),
         "vae": _scan_folder(MODELS_DIR / "vae"),
+        "latent_upscale_models": _scan_folder(MODELS_DIR / "latent_upscale_models"),
+        "vae_approx": _scan_folder(MODELS_DIR / "vae_approx"),
         "loras": _scan_folder(MODELS_DIR / "loras"),
     }
 
@@ -869,6 +878,10 @@ def validate_model_files(models: list[dict]) -> list[str]:
             continue
         for name, field in MODEL_FOLDERS.items():
             value = model.get(name)
+            if name == "tiny_vae" and str(value or "none") == "none":
+                continue
+            if name == "latent_upscale_model" and (not value or str(value).startswith("(")):
+                continue
             if value and not _model_exists(value, field):
                 missing.append(f"第{index + 1}段 {field}：{value}")
     return missing

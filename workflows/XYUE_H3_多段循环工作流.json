@@ -1742,7 +1742,9 @@
         "Minimax_H3\\minimax_h3_ref2va_XUELUO_int8_convrot.safetensors",
         "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
         "minimax_h3_video_vae_fp16.safetensors",
-        "minimax_h3_audio_vae_fp32.safetensors"
+        "minimax_h3_audio_vae_fp32.safetensors",
+        "minimax_h3_latent_upscaler_3d_fp16.safetensors",
+        "none"
       ],
       "color": "#605740",
       "bgcolor": "#302d25"
@@ -2378,7 +2380,9 @@
         "Minimax_H3\\minimax_h3_ref2va_XUELUO_int8_convrot.safetensors",
         "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
         "minimax_h3_video_vae_fp16.safetensors",
-        "minimax_h3_audio_vae_fp32.safetensors"
+        "minimax_h3_audio_vae_fp32.safetensors",
+        "minimax_h3_latent_upscaler_3d_fp16.safetensors",
+        "none"
       ],
       "color": "#605740",
       "bgcolor": "#302d25"
@@ -3103,7 +3107,9 @@
         "Minimax_H3\\minimax_h3_ref2va_XUELUO_int8_convrot.safetensors",
         "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
         "minimax_h3_video_vae_fp16.safetensors",
-        "minimax_h3_audio_vae_fp32.safetensors"
+        "minimax_h3_audio_vae_fp32.safetensors",
+        "minimax_h3_latent_upscaler_3d_fp16.safetensors",
+        "none"
       ],
       "color": "#605740",
       "bgcolor": "#302d25"
@@ -9083,7 +9089,9 @@
         "Minimax_H3\\minimax_h3_ref2va_XUELUO_int8_convrot.safetensors",
         "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
         "minimax_h3_video_vae_fp16.safetensors",
-        "minimax_h3_audio_vae_fp32.safetensors"
+        "minimax_h3_audio_vae_fp32.safetensors",
+        "minimax_h3_latent_upscaler_3d_fp16.safetensors",
+        "none"
       ],
       "color": "#605740",
       "bgcolor": "#302d25"
@@ -9803,7 +9811,9 @@
         "Minimax_H3\\minimax_h3_ref2va_XUELUO_int8_convrot.safetensors",
         "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
         "minimax_h3_video_vae_fp16.safetensors",
-        "minimax_h3_audio_vae_fp32.safetensors"
+        "minimax_h3_audio_vae_fp32.safetensors",
+        "minimax_h3_latent_upscaler_3d_fp16.safetensors",
+        "none"
       ],
       "color": "#605740",
       "bgcolor": "#302d25"

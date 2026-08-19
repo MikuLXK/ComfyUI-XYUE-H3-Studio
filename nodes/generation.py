@@ -13,14 +13,12 @@ from comfy_extras.nodes_audio import VAEDecodeAudio
 from comfy_extras.nodes_custom_sampler import (
     BasicGuider,
     BasicScheduler,
-    DisableNoise,
-    ExtendIntermediateSigmas,
+    CFGGuider,
     KSamplerSelect,
     RandomNoise,
     SamplerCustomAdvanced,
     SplitSigmas,
 )
-from comfy_extras.nodes_lt import LTXVConcatAVLatent, LTXVSeparateAVLatent
 from comfy_extras.nodes_minimax_h3 import MiniMaxH3ImageToVideo, MiniMaxH3ReferenceToVideo
 from comfy_extras.nodes_video import CreateVideo
 
@@ -43,7 +41,10 @@ from ..core.generation_options import (
     resolve_sampling,
     sampler_for_acceleration,
 )
-from ..core.resolution import ASPECTS, NATIVE_RESOLUTION, RESOLUTION_OPTIONS, align_duration, resolve_canvas
+from ..core.latent_refine import refine_av_latent
+from ..core.preview import attach_preview
+from ..core.resolution import ASPECTS, NATIVE_RESOLUTION, RESOLUTION_OPTIONS, align_duration, downscale_canvas, resolve_canvas
+from ..core.sigma_refiner import refine_sigmas
 from ..core.multi_stage_config import stage_values
 from .assets import MATERIAL_PACK
 from .checkpoints import _stage_number
@@ -59,12 +60,22 @@ def _display(name: str) -> str:
 
 
 def _models(folder: str, needle: str = "") -> list[str]:
-    values = list(folder_paths.get_filename_list(folder))
+    if folder == "latent_upscale_models" and folder not in folder_paths.folder_names_and_paths:
+        folder_paths.add_model_folder_path(folder, os.path.join(folder_paths.models_dir, folder))
+    try:
+        values = list(folder_paths.get_filename_list(folder))
+    except KeyError:
+        values = []
     if needle:
         filtered = [value for value in values if needle.lower() in value.lower()]
         if filtered:
             values = filtered
     return sorted(values)
+
+
+def _optional_models(folder: str, fallback: str = "none") -> list[str]:
+    values = _models(folder)
+    return [fallback, *values] if fallback not in values else values
 
 
 def _pick(values: list[str], needles: tuple[str, ...], fallback: str = "") -> str:
@@ -105,6 +116,12 @@ class XYUEH3ModeModelSelector(io.ComfyNode):
         diffusion = _models("diffusion_models")
         text = _models("text_encoders")
         vaes = _models("vae", "minimax_h3")
+        latent_upscalers = [
+            model_name
+            for model_name in _models("latent_upscale_models")
+            if "minimax_h3" in model_name.lower()
+        ]
+        tiny_vaes = _optional_models("vae_approx")
         return io.Schema(
             node_id="XYUE_H3_ModeModelSelector",
             display_name=_display("模式与模型选择"),
@@ -117,12 +134,14 @@ class XYUEH3ModeModelSelector(io.ComfyNode):
                 io.Combo.Input("language_model", display_name="语言模型", options=text, default=_pick(text, ("qwen3vl", "minimax"))),
                 io.Combo.Input("video_vae", display_name="视频 VAE", options=vaes, default=_pick(vaes, ("video_vae",))),
                 io.Combo.Input("audio_vae", display_name="音频 VAE", options=vaes, default=_pick(vaes, ("audio_vae",))),
+                io.Combo.Input("latent_upscale_model", display_name="H3 Latent 放大模型", options=latent_upscalers or ["(未安装 H3 Latent Upscaler)"], default=_pick(latent_upscalers, ("minimax_h3_latent_upscaler_3d_fp16",), latent_upscalers[0] if latent_upscalers else "(未安装 H3 Latent Upscaler)")),
+                io.Combo.Input("tiny_vae", display_name="实时预览 Tiny VAE", options=tiny_vaes, default="none"),
             ],
             outputs=[MODEL_PROFILE.Output(display_name="模型配置"), io.String.Output(display_name="模型报告"), io.Model.Output(display_name="主模型")],
         )
 
     @classmethod
-    def execute(cls, mode, base_model, reference_model, language_model, video_vae, audio_vae):
+    def execute(cls, mode, base_model, reference_model, language_model, video_vae, audio_vae, latent_upscale_model="", tiny_vae="none"):
         mode = normalize_mode(str(mode))
         profile = {
             "schema": MODEL_PROFILE_SCHEMA,
@@ -133,6 +152,8 @@ class XYUEH3ModeModelSelector(io.ComfyNode):
             "language_model": str(language_model),
             "video_vae": str(video_vae),
             "audio_vae": str(audio_vae),
+            "latent_upscale_model": str(latent_upscale_model),
+            "tiny_vae": str(tiny_vae or "none"),
         }
         model = None
         if profile["main_model"]:
@@ -181,16 +202,22 @@ class XYUEH3GenerationProfile(io.ComfyNode):
                 sampling_preset, sampling_mode, coarse_steps, upscale_factor, refine_pass, extend_sigmas,
                 configured_values,
             )
-        width, height, experimental = resolve_canvas(str(aspect), str(resolution))
+        target_width, target_height, experimental = resolve_canvas(str(aspect), str(resolution))
         frames, effective_duration = align_duration(int(duration))
         if not MIN_STEPS <= int(steps) <= MAX_STEPS:
             raise ValueError(f"H3 视频步数必须在 {MIN_STEPS}–{MAX_STEPS} 之间")
+        sampling = resolve_sampling(sampling_preset, sampling_mode, coarse_steps, upscale_factor, refine_pass, extend_sigmas)
+        width, height = target_width, target_height
+        if sampling["mode"] == "dual":
+            width, height = downscale_canvas(target_width, target_height, sampling["upscale_factor"])
         profile = {
             "schema": GENERATION_PROFILE_SCHEMA,
             "aspect": str(aspect),
             "resolution": str(resolution),
             "width": width,
             "height": height,
+            "target_width": target_width,
+            "target_height": target_height,
             "duration": int(duration),
             "effective_duration": effective_duration,
             "frames": frames,
@@ -199,7 +226,7 @@ class XYUEH3GenerationProfile(io.ComfyNode):
             "scheduler": normalize_scheduler(str(scheduler)),
             "seed": int(seed),
             "reference_size": normalize_reference_size(str(reference_size)),
-            "sampling": resolve_sampling(sampling_preset, sampling_mode, coarse_steps, upscale_factor, refine_pass, extend_sigmas),
+            "sampling": sampling,
             "experimental_resolution": experimental,
         }
         report = json.dumps(profile, ensure_ascii=False, indent=2)
@@ -361,53 +388,70 @@ def _reference_payload(material_pack: dict[str, Any]) -> dict[str, dict[str, Any
     return {"ref_images": images, "ref_videos": videos, "ref_video_audios": video_audios, "ref_audios": audios}
 
 
-def _sample_av(guider, sampler, sigmas, latent, noise, sampling):
-    """Sample an AV latent in one pass or the HQ dual-stage recipe.
-
-    `sampling` is a resolved dict from resolve_sampling (keys: mode,
-    coarse_steps, upscale_factor, refine_pass, extend_sigmas). Dual mode
-    expands the low-noise part of the schedule, samples coarse steps to lock
-    structure, upscales the denoised video latent, performs one low-noise
-    video refinement step, rejoins the coarse audio stream, and optionally
-    runs a noise-free joint refinement on the full AV latent.
-    """
+def _sample_av(
+    *,
+    model,
+    conditioned,
+    guider,
+    sampler,
+    sigmas,
+    latent,
+    noise,
+    sampling,
+    target_width,
+    target_height,
+    model_profile,
+):
+    """Run single sampling or the official H3 learned-upscale two-pass flow."""
 
     if str(sampling.get("mode") or "single") != "dual":
-        return SamplerCustomAdvanced.execute(noise=noise, guider=guider, sampler=sampler, sigmas=sigmas, latent_image=latent)[0]
+        return SamplerCustomAdvanced.execute(
+            noise=noise, guider=guider, sampler=sampler, sigmas=sigmas, latent_image=latent
+        )[0]
 
-    extend = max(0, int(sampling.get("extend_sigmas") or 0))
-    coarse = max(1, int(sampling.get("coarse_steps") or 2))
-    scale = max(1.0, float(sampling.get("upscale_factor") or 1.0))
-
-    if extend and len(sigmas) > 2:
-        start_at = float(sigmas[min(coarse, len(sigmas) - 1)])
-        sigmas = ExtendIntermediateSigmas.execute(sigmas=sigmas, steps=extend, start_at_sigma=start_at, end_at_sigma=0.0, spacing="linear")[0]
-
-    coarse = min(coarse, max(len(sigmas) - 2, 1))
-    split = SplitSigmas.execute(sigmas=sigmas, step=coarse)
-    high, low = split[0], split[1]
-
-    coarse_pass = SamplerCustomAdvanced.execute(noise=noise, guider=guider, sampler=sampler, sigmas=high, latent_image=latent)
-    _, audio_latent = LTXVSeparateAVLatent.execute(av_latent=coarse_pass[0])
-    video_latent, _ = LTXVSeparateAVLatent.execute(av_latent=coarse_pass[1])
-    if scale > 1.0:
-        video_latent = comfy_nodes.LatentUpscaleBy().upscale(video_latent, "bislerp", scale)[0]
-
-    video_sigmas = SplitSigmas.execute(sigmas=low, step=0)[0]
-    video_refined = SamplerCustomAdvanced.execute(
+    coarse_steps = max(1, int(sampling.get("coarse_steps") or 2))
+    sigmas = refine_sigmas(
+        sigmas,
+        extra_steps=max(0, int(sampling.get("extend_sigmas") or 0)),
+        start_at_sigma=float(sampling.get("sigma_start", 0.7)),
+        end_at_sigma=float(sampling.get("sigma_end", 0.0)),
+        spacing=str(sampling.get("sigma_spacing", "cosine")),
+    )
+    coarse_steps = min(coarse_steps, max(int(sigmas.shape[-1]) - 2, 1))
+    high_sigmas, low_sigmas = SplitSigmas.execute(sigmas=sigmas, step=coarse_steps)
+    coarse_pass = SamplerCustomAdvanced.execute(
         noise=noise,
         guider=guider,
         sampler=sampler,
-        sigmas=video_sigmas,
-        latent_image=video_latent,
+        sigmas=high_sigmas,
+        latent_image=latent,
     )
-    finished = LTXVConcatAVLatent.execute(video_latent=video_refined[0], audio_latent=audio_latent)[0]
 
-    if bool(sampling.get("refine_pass")) and len(low) > 2:
-        silent = DisableNoise.execute()[0]
-        finished, _ = SamplerCustomAdvanced.execute(noise=silent, guider=guider, sampler=sampler, sigmas=low, latent_image=finished)
-
-    return finished
+    negative = comfy_nodes.ConditioningZeroOut().zero_out(conditioning=conditioned)[0]
+    refined_latent, refined_positive, refined_negative = refine_av_latent(
+        coarse_pass[1],
+        conditioned,
+        negative,
+        model_name=str(model_profile.get("latent_upscale_model") or ""),
+        target_width=int(target_width),
+        target_height=int(target_height),
+        device=str(sampling.get("upscale_device", "cuda")),
+        precision=str(sampling.get("upscale_precision", "auto")),
+        align=int(sampling.get("upscale_align", 2)),
+    )
+    refine_guider = CFGGuider.execute(
+        model=model,
+        positive=refined_positive,
+        negative=refined_negative,
+        cfg=1.0,
+    )[0]
+    return SamplerCustomAdvanced.execute(
+        noise=noise,
+        guider=refine_guider,
+        sampler=sampler,
+        sigmas=low_sigmas,
+        latent_image=refined_latent,
+    )[0]
 
 
 class XYUEH3Generator(io.ComfyNode):
@@ -430,10 +474,11 @@ class XYUEH3Generator(io.ComfyNode):
             ],
             is_output_node=True,
             outputs=[io.Video.Output(display_name="生成视频"), io.Image.Output(display_name="画面帧"), io.Audio.Output(display_name="生成音频"), io.String.Output(display_name="生成报告")],
+            hidden=[io.Hidden.unique_id],
         )
 
     @classmethod
-    def execute(cls, model_profile, generation_profile, prompt, material_pack=None, first_frame=None, last_frame=None, accelerated_model=None, global_acceleration=None):
+    def execute(cls, model_profile, generation_profile, prompt, material_pack=None, first_frame=None, last_frame=None, accelerated_model=None, global_acceleration=None, unique_id=None):
         model_profile = dict(model_profile or {})
         generation_profile = dict(generation_profile or {})
         stage_name = str(generation_profile.get("stage_name") or "第一阶段")
@@ -469,7 +514,16 @@ class XYUEH3Generator(io.ComfyNode):
         clip = comfy_nodes.CLIPLoader().load_clip(model_profile["language_model"], "minimax", "default")[0]
         video_vae = comfy_nodes.VAELoader().load_vae(model_profile["video_vae"])[0]
         audio_vae = comfy_nodes.VAELoader().load_vae(model_profile["audio_vae"])[0]
-        width, height, length = int(generation_profile["width"]), int(generation_profile["height"]), int(generation_profile["frames"])
+        model = attach_preview(
+            model,
+            tiny_vae=str(model_profile.get("tiny_vae") or "none"),
+            unique_id=unique_id,
+        )
+        width = int(generation_profile["width"])
+        height = int(generation_profile["height"])
+        target_width = int(generation_profile.get("target_width", width))
+        target_height = int(generation_profile.get("target_height", height))
+        length = int(generation_profile["frames"])
         if mode == "Ref2VA":
             references = _reference_payload(dict(material_pack or {}))
             conditioned, latent = MiniMaxH3ReferenceToVideo.execute(
@@ -490,14 +544,27 @@ class XYUEH3Generator(io.ComfyNode):
         sigmas = BasicScheduler.execute(model=model, scheduler=str(generation_profile["scheduler"]), steps=int(generation_profile["steps"]), denoise=1.0)[0]
         noise = RandomNoise.execute(noise_seed=int(generation_profile["seed"]))[0]
         sampling = dict(generation_profile.get("sampling") or {})
-        finished = _sample_av(guider=guider, sampler=sampler, sigmas=sigmas, latent=latent, noise=noise, sampling=sampling)
+        finished = _sample_av(
+            model=model,
+            conditioned=conditioned,
+            guider=guider,
+            sampler=sampler,
+            sigmas=sigmas,
+            latent=latent,
+            noise=noise,
+            sampling=sampling,
+            target_width=target_width,
+            target_height=target_height,
+            model_profile=model_profile,
+        )
         images = comfy_nodes.VAEDecode().decode(video_vae, finished)[0]
         audio = VAEDecodeAudio.execute(audio_vae, finished)[0]
         video = CreateVideo.execute(images=images, fps=24.0, audio=audio, bit_depth=10)[0]
         report = {
             "schema": "xyue-h3/generation-report-v1",
             "mode": mode,
-            "canvas": f"{width}x{height}",
+            "canvas": f"{target_width}x{target_height}",
+            "base_canvas": f"{width}x{height}",
             "frames": length,
             "steps": int(generation_profile["steps"]),
             "audio_steps": int(generation_profile.get("audio_steps", generation_profile["steps"])),

@@ -42,6 +42,8 @@ class XYUEH3AggregateWorkflow(io.ComfyNode):
                                 "language_model": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
                                 "video_vae": "minimax_h3_video_vae_fp16.safetensors",
                                 "audio_vae": "minimax_h3_audio_vae_fp32.safetensors",
+                                "latent_upscale_model": "minimax_h3_latent_upscaler_3d_fp16.safetensors",
+                                "tiny_vae": "none",
                             }],
                             "generation": {"global_enabled": False, "stages": [{
                                 "aspect": "16:9", "resolution": "480p（864×480）", "duration": 5,

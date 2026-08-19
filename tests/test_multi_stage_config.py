@@ -574,10 +574,10 @@ def test_resolve_sampling_presets_override_widget_values():
     assert resolve_sampling("高品质双段") == {
         "preset": "高品质双段",
         "mode": "dual",
-        "coarse_steps": 2,
-        "upscale_factor": 1.2,
+        "coarse_steps": 4,
+        "upscale_factor": 1.5,
         "refine_pass": True,
-        "extend_sigmas": 2,
+        "extend_sigmas": 1,
     }
     assert resolve_sampling("未知预设", "双段采样", 3, 1.5, True, 4) == {
         "preset": "快速单次（推荐）",

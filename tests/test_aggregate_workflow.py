@@ -130,7 +130,10 @@ def test_aggregate_cut_ref2va_does_not_use_continuation_reference():
         assert registry_source["type"] == "XYUE_H3_MaterialManager"
 
 
-def test_aggregate_build_removes_cloud_config_node():
+def test_aggregate_build_removes_cloud_config_node(monkeypatch):
+    from tools import configure_multi_stage_workflow
+
+    monkeypatch.setattr(configure_multi_stage_workflow, "validate_model_files", lambda models: [])
     prompt = (
         "integrated_multimodal_description: [Shot 1] A sword cultivator raises her blade.\n\n"
         "overall_soundscape: Wind crosses the stone platform.\n\n"
@@ -152,6 +155,8 @@ def test_aggregate_build_removes_cloud_config_node():
             "language_model": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
             "video_vae": "minimax_h3_video_vae_fp16.safetensors",
             "audio_vae": "minimax_h3_audio_vae_fp32.safetensors",
+            "latent_upscale_model": "minimax_h3_latent_upscaler_3d_fp16.safetensors",
+            "tiny_vae": "none",
         }],
         "generation": {
             "global_enabled": False,
@@ -184,3 +189,12 @@ def test_aggregate_build_removes_cloud_config_node():
         and int((node.get("properties") or {}).get("xyue_stage_index") or 0) == 1
     )
     assert profile["widgets_values"][2] == 5
+    selector = next(
+        node for node in workflow["nodes"]
+        if node["type"] == "XYUE_H3_ModeModelSelector"
+        and int((node.get("properties") or {}).get("xyue_stage_index") or 0) == 1
+    )
+    assert selector["widgets_values"][6:8] == [
+        "minimax_h3_latent_upscaler_3d_fp16.safetensors",
+        "none",
+    ]

@@ -84,6 +84,13 @@ def resolve_canvas(aspect: str, resolution: str) -> tuple[int, int, bool]:
     return width, height, experimental
 
 
+def downscale_canvas(width: int, height: int, scale: float) -> tuple[int, int]:
+    """Return a H3-compatible base canvas for a learned latent upscale pass."""
+
+    factor = max(1.0, float(scale))
+    return _align(width / factor), _align(height / factor)
+
+
 def align_duration(seconds: int | float) -> tuple[int, float]:
     requested = max(1, min(15, int(seconds)))
     frames = max(5, int(round(requested * FPS)))
