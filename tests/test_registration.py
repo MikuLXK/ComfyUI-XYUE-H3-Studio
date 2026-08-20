@@ -18,8 +18,7 @@ def test_public_surface_is_studio_and_asset_library():
     schemas = _schemas()
     assert "XYUE_H3_AggregateWorkflow" in schemas
     assert "XYUE_H3_StudioExecutor" in schemas
-    assert "XYUE_H3_ImageAsset" in schemas
-    assert "XYUE_H3_MaterialManager" in schemas
+    assert "XYUE_H3_ImageAsset" not in schemas
     assert "XYUE_H3_Generator" not in schemas
     assert "XYUE_H3_StageGenerationProfile" not in schemas
     assert "XYUE_H3_GlobalAccelerationManager" not in schemas

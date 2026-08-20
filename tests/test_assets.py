@@ -14,11 +14,7 @@ def _video_asset_class():
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
-    extension = asyncio.run(module.comfy_entrypoint())
-    return next(
-        node for node in asyncio.run(extension.get_node_list())
-        if node.GET_SCHEMA().node_id == "XYUE_H3_VideoAsset"
-    )
+    return sys.modules[f"{spec.name}.nodes.assets"].XYUEH3VideoAsset
 
 
 def test_video_asset_exposes_reference_frames_without_changing_existing_outputs():
@@ -49,16 +45,12 @@ def test_disabled_reference_outputs_are_empty_for_all_asset_types():
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
-    extension = asyncio.run(module.comfy_entrypoint())
-    classes = {
-        node.GET_SCHEMA().node_id: node
-        for node in asyncio.run(extension.get_node_list())
-    }
+    assets = sys.modules[f"{spec.name}.nodes.assets"]
 
-    image_result = classes["XYUE_H3_ImageAsset"].execute(
+    image_result = assets.XYUEH3ImageAsset.execute(
         "未选择图片", False, "@图片N", "未指定", "保持原图"
     ).result
-    audio_result = classes["XYUE_H3_AudioAsset"].execute(
+    audio_result = assets.XYUEH3AudioAsset.execute(
         "未选择音频", False, "@音频N", "环境", "角色A", 0.0, 0.0, 0.0, False
     ).result
     assert image_result[3] is None

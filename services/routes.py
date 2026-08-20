@@ -108,7 +108,11 @@ async def xyue_aggregate_preview(request):
 @routes.get("/xyue-h3/materials")
 async def xyue_material_library(request):
     del request
-    return web.json_response({"materials": scan_material_library(Path(folder_paths.get_input_directory()))})
+    input_items = scan_material_library(Path(folder_paths.get_input_directory()))
+    output_items = scan_generated_library(Path(folder_paths.get_output_directory()))
+    for item in output_items:
+        item["file"] = f"{item['file']} [output]"
+    return web.json_response({"materials": input_items + output_items})
 
 
 @routes.get("/xyue-h3/generated")

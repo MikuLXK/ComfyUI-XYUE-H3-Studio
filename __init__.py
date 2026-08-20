@@ -31,7 +31,7 @@ WEB_DIRECTORY = "./web"
 
 class XYUEH3StudioExtension(ComfyExtension):
     async def get_node_list(self) -> list[type[io.ComfyNode]]:
-        return AGGREGATE_NODE_CLASSES + STUDIO_EXECUTOR_NODE_CLASSES + ASSET_NODE_CLASSES
+        return AGGREGATE_NODE_CLASSES + STUDIO_EXECUTOR_NODE_CLASSES
 
 
 async def comfy_entrypoint() -> XYUEH3StudioExtension:

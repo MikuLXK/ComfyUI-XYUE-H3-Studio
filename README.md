@@ -14,7 +14,7 @@ Studio 顶栏的“进入剪辑”会打开独立二级剪辑页。剪辑页支�
 
 参考插件：[ComfyUI-H3-Motion-Context](https://github.com/NikoDemon80/ComfyUI-H3-Motion-Context)
 
-独立的 MiniMax H3 本地生成工作室节点包。生成入口只有 `XYUE H3 Studio`，素材库节点用于向 Studio 提供已导入素材；内部执行器按当前项目配置直接调用 ComfyUI 核心和已安装的第三方节点适配器。
+独立的 MiniMax H3 本地生成工作室节点包。生成入口只有 `XYUE H3 Studio`，Studio 素材库直接读取 ComfyUI input/output 素材；内部执行器按当前项目配置直接调用 ComfyUI 核心和已安装的第三方节点适配器。
 
 ## 相关仓库
 
