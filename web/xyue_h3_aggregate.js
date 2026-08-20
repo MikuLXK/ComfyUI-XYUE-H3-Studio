@@ -35,6 +35,7 @@ const DEFAULT_CONFIG = {
     audio_steps: 4,
     scheduler: "简单稳定（推荐）",
     seed: 0,
+    seed_mode: "random",
     seed_control: "randomize",
     reference_size: "适配生成画布（省显存）",
     sampling: { upscale_factor: 1.5, sigma_steps: 3, denoise: 0.3 },

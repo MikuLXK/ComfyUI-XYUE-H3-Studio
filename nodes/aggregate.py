@@ -50,7 +50,7 @@ class XYUEH3AggregateWorkflow(io.ComfyNode):
                             "generation": {"global_enabled": False, "stages": [{
                                 "aspect": "16:9", "resolution": "0.4MP|480p（864×480）", "duration": 5,
                                 "video_steps": 4, "audio_steps": 4, "scheduler": "简单稳定（推荐）",
-                                "seed": 0, "seed_control": "randomize", "reference_size": "适配生成画布（省显存）",
+                                "seed": 0, "seed_mode": "random", "seed_control": "randomize", "reference_size": "适配生成画布（省显存）",
                                 "sampling": {"upscale_factor": 1.5, "sigma_steps": 3, "denoise": 0.3},
                             }]},
                             "save_policy": {
