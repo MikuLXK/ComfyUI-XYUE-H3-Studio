@@ -2,15 +2,15 @@ import { app } from "../../../scripts/app.js";
 
 const NODE_TYPE = "XYUE_H3_AggregateWorkflow";
 // Bump this when the embedded Studio bundle changes so an old iframe cannot hide new controls.
-const STUDIO_URL = "/xyue-h3/studio/?v=B4Zo_uyt";
+const STUDIO_URL = "/xyue-h3/studio/?v=blank-16x9";
 const FRAME_HEIGHT = 860;
 const NODE_WIDTH = 1500;
 const MATERIAL_LIMITS = { image: 9, video: 3, audio: 3 };
 const DEFAULT_CONFIG = {
   schema: "xyue-h3/studio-config-v3",
   stage_count: 1,
-  stage_titles: ["云海问剑"],
-  prompts: ["integrated_multimodal_description: [Shot 1] ...\n\noverall_soundscape: ...\n\nnon_diegetic_music: ..."],
+  stage_titles: [""],
+  prompts: [""],
   durations: [5],
   transitions: ["cut"],
   models: [{

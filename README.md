@@ -1,31 +1,64 @@
 # ComfyUI-XYUE-H3-Studio
 
-## H3 双段采样与聚合剪辑
+MiniMax H3 本地视频创作工作室。它把提示词、素材引用、H3 双段采样、镜头衔接、实时预览和剪辑导出集中在一个聚合界面中，适合制作单镜头和多镜头短剧。
 
-每个镜头设置画面比例、初始分辨率、基础视频/音频步数、Sigma 精修步数、降噪程度和潜空间放大倍率。Studio 动态执行 H3+Sigma+潜空间放大双段链路：基础 Sigma 调度 → Sigma 强化 → 第一次采样 → 视频 latent 放大（音频不放大）→ conditioning 同步 → 第二次采样。
+![XYUE H3 Studio 主页面](docs/xyue-h3-studio-main.png)
 
-Studio 顶栏的“进入剪辑”会打开独立二级剪辑页。剪辑页支持预览、逐帧定位、入点/出点、分割、复制、移除、排序、音量和静音，并通过 FFmpeg 导出实际成片。操作是非破坏性的，不修改阶段源文件。
+## 功能概览
 
-## Motion Context 说明
+- **镜头轨道**：创建 1–5 个独立镜头。每个镜头可以单独编辑、生成、重试、保存和加入合成。
+- **自然语言提示词**：直接输入 H3 自然语言提示词；在输入 `@` 或 `<` 时，可以从素材快速列表插入图片、视频和音频引用。
+- **素材台**：读取 ComfyUI 的 input/output 素材，显示缩略图、名称、类型和启用状态。
+- **镜头衔接**：普通切镜、承接上一镜尾帧、H3 Motion Context 动作与音频上下文。
+- **双段精修**：基础 Sigma 调度、Sigma 尾段强化、第一次采样、视频 latent 放大、条件同步和第二次采样。
+- **实时预览**：采样过程中通过 Tiny VAE 和 KJ Preview Override 查看中间画面。
+- **剪辑页面**：独立二级页面支持预览、入点/出点、分割、复制、移除、排序、音量、静音和 FFmpeg 导出。
+- **项目保存**：阶段视频、最终合成视频和报告 JSON 按项目目录保存，文件名支持模板和重名策略。
 
-“动作音频续接”已接入 H3 Motion Context，和“尾帧续接”是两种独立能力：尾帧续接只引用上一镜最后一帧；动作音频续接会携带上一镜末尾连续 22 帧和约 1 秒原声音频。若上一镜最终 latent 与本镜初始 latent 尺寸一致，XYUE 直接传递最终 AV latent；经过 latent 放大导致尺寸不一致时，则自动使用上一镜最终画面和声音，由 Motion Context 按本镜初始画布编码，不会错误使用第一次高 Sigma 采样产生的半成品 latent。
+## H3 双段采样
 
-动作音频续接会在新镜开头生成一段固定上下文，并在解码后同步裁掉重复画面和对应音频。相邻镜头应保持相同初始比例和分辨率；普通独立切镜不加载 Motion Context。使用该模式前必须安装下方第三方节点并重启 ComfyUI。
+每个镜头可以独立设置：
 
-参考插件：[ComfyUI-H3-Motion-Context](https://github.com/NikoDemon80/ComfyUI-H3-Motion-Context)
+- 初始画面比例和 MP 分辨率
+- 基础视频步数、基础音频步数
+- Sigma 精修步数和降噪程度
+- Latent 放大倍率（支持一位小数，例如 `1.4x`、`1.5x`、`1.6x`）
+- 调度器、随机种子和参考素材尺寸策略
 
-独立的 MiniMax H3 本地生成工作室节点包。生成入口只有 `XYUE H3 Studio`，Studio 素材库直接读取 ComfyUI input/output 素材；内部执行器按当前项目配置直接调用 ComfyUI 核心和已安装的第三方节点适配器。
+默认参数为基础视频 `4` 步、基础音频 `4` 步、Sigma 精修 `3` 步、降噪 `0.30`、Latent 放大 `1.5x`。H3 使用联合音画 latent，执行时以视频和音频步数中的较大值作为共享基础采样步数。
 
-## 相关仓库
+推荐的 16:9 起始方案是 `0.4MP（864×480）→ 1.5x → 1296×720`。执行顺序为：
 
-- [云端多段式 Skill](https://github.com/MikuLXK/h3-multi-stage-cloud-generation)：生成可粘贴到云端配置节点的多段 JSON。
-- [本地多段式 Skill](https://github.com/MikuLXK/h3-multi-stage-generation)：检查画布、配置阶段、续跑并提交本地工作流。
-- [MiniMax H3 Prompt Writing Skill](https://github.com/MiniMax-AI/MiniMax-H3)：两个多段式 Skill 使用的官方提示词 Skill。
+```text
+基础 Sigma 调度
+→ Sigma 尾段强化
+→ 分离高/低 Sigma
+→ 第一次采样
+→ 视频 latent 放大（音频 latent 保持原尺寸）
+→ H3 Latent Cond Sync 条件同步
+→ 第二次采样
+→ 解码视频与音频
+```
 
-## 项目计划
+## 模型、LoRA 与注意力
 
-- [目标架构与重构计划](docs/XYUE_H3_Studio_目标架构与重构计划.md)
-- [TODO](TODO.md)
+每个镜头可以选择基础模型、多参考模型、语言模型、视频 VAE、音频 VAE、Latent 放大模型和 Tiny VAE，并单独设置：
+
+- LoRA 开关
+- LoRA 文件
+- LoRA 强度
+- `MiniMax H3 Kitchen Attention`
+- `Patch Sol-Attn`
+
+LoRA 会在主模型加载后应用，注意力后端随后接管模型注意力实现。Tiny VAE 只影响实时预览，不改变最终视频质量。
+
+## 镜头衔接
+
+- **普通切镜**：当前镜头独立生成，不读取上一镜。
+- **承接上一镜尾帧**：自动取轨道上前一个镜头生成视频的最后一帧，作为当前镜头的衔接素材；生成模式由当前镜头选择决定。
+- **Motion Context**：读取前一个镜头末尾的连续动作帧和原声音频，形成 H3 的动作与声音上下文。相邻镜头建议保持相同的初始比例和分辨率。
+
+当前镜头的“生成当前镜头”按钮只提交选中的镜头。已完成的其他镜头会保留；已有视频时按钮显示为“重新生成当前镜头”。可以选择沿用上次种子或使用随机种子。
 
 ## 安装
 
@@ -35,62 +68,58 @@ Studio 顶栏的“进入剪辑”会打开独立二级剪辑页。剪辑页支�
 git clone https://github.com/MikuLXK/ComfyUI-XYUE-H3-Studio.git
 ```
 
-首次安装文档解析依赖：
+安装插件依赖：
 
 ```powershell
 python_embeded\python.exe -m pip install -r ComfyUI\custom_nodes\ComfyUI-XYUE-H3-Studio\requirements.txt
 ```
 
-重启 ComfyUI 后，节点会从当前安装的 `diffusion_models`、`text_encoders` 和 `vae` 动态读取模型下拉框，不在代码中固定模型文件名。
+重启 ComfyUI 后，访问：
 
-## 使用顺序
+```text
+http://127.0.0.1:8188/xyue-h3/studio/
+```
 
-1. 在 Studio 素材台导入或选择 Image/Video/Audio 素材。
-2. 在提示词框输入 `@` 或 `<`，从快速列表选择引用。
-3. 在设置页的 `XYUE H3 / API 配置` 保存提示词强化服务配置，密钥只保存在 `ComfyUI/user/default/xyue_h3_studio/api_secrets.json`。
-4. 在 Studio 中配置当前镜头；初始画布由分辨率决定，二次采样画布由 latent 放大倍率自动推导。每个镜头可以分别设置 LoRA 开关、LoRA 文件、强度和注意力后端（`MiniMax H3 Kitchen Attention` / `Patch Sol-Attn`）。
-5. 云端部署时直接输出 `xyue.h3.multi-stage-cloud-config/v1` JSON；本地 Studio 使用 `xyue-h3/studio-config-v3`，不再依赖配置节点或固定工作流模板。
-6. Studio 只执行当前目标镜头；前镜结果按轨道关系复用。每个镜头的 LoRA 和注意力后端在执行器内真实调用。
+也可以在 ComfyUI 画布中添加 `XYUE H3 Studio` 聚合节点。每次提交会按照当前项目配置生成对应的执行图。
 
-## H3 Latent 双段精修
+## 第三方节点与模型
 
-XYUE 的双段流程与 `H3+sigma强化+潜空间放大.json` 一致：基础视频/音频步数、Sigma 精修步数和降噪程度分开保存。默认是基础视频 `4`、基础音频 `4`、Sigma 精修 `3`、降噪 `0.30`；H3 的音画是联合 latent，实际共享基础采样次数取视频/音频步数的较大值。基础调度器生成 Sigma 后，Sigma 精修强化低 Sigma 尾段，分出高/低 Sigma；第一次采样后只放大视频 latent，保留原音频 latent，随后使用 `H3 Latent Cond Sync (3D)` 同步图像、首帧、尾帧和多参考 conditioning 到放大后尺寸，再以 CFG=1 的正/负条件完成第二次采样。参考文件使用 `0.4MP（864×480）→ 1.5x → 1296×720`；UI 只允许以一位小数调整 `1.0–4.0x` 倍率，例如 `1.4x`、`1.5x`、`1.6x`，不接受 `1.55x` 这类两位小数。
-
-放大权重来自 [Minimax_h3_latent_Upscaler（Hugging Face）](https://huggingface.co/LBH-123-AI/Minimax_h3_latent_Upscaler)，适配节点来自 [Comfyui_Minimax_h3_latent_Upscaler（GitHub）](https://github.com/LBH-123-AI/Comfyui_Minimax_h3_latent_Upscaler)，放大权重放入 `ComfyUI/models/latent_upscale_models/`。双段流程会增加第二次采样和精修阶段显存占用。
-
-`tiny_vae` 只用于采样过程中的实时预览，不影响最终视频质量。该功能需要已安装的 `ComfyUI-KJNodes`。下拉框会完整读取 `ComfyUI/models/vae_approx/`，默认使用 `none`；若所选解码器的 latent 通道数与 H3 不匹配，KJ 预览器会忽略它并回退到普通预览。
-
-## LoRA 与注意力后端
-
-- Studio 每个镜头都有“启用 LoRA”开关、LoRA 文件和强度。开关打开后先对 H3 主模型执行 `LoraLoaderModelOnly`，再应用所选注意力后端；关闭时不会加载 LoRA。
-- 注意力后端提供两个选项：`MiniMax H3 Kitchen Attention` 使用 ComfyUI 核心 `ModelAttentionBackend`，`Patch Sol-Attn` 使用 [ComfyUI-SolAttn_triton（GitHub）](https://github.com/kijai/ComfyUI-SolAttn_triton)。当前本机 Kitchen Attention 可用。
-- 聚合 Studio 不再包含孤立的全局 LoRA 或旧加速控制器。公开执行入口将当前配置交给内部执行器，执行器再调用已安装的 ComfyUI 核心和第三方能力。
-
-直接访问 Studio：`http://127.0.0.1:8188/xyue-h3/studio/`；也可以访问 `http://127.0.0.1:8188/xyue-h3` 自动跳转。页面嵌入 ComfyUI 或直接打开都支持实时生成状态。
-
-### 必需的第三方节点与模型
-
-| 项目 | 用途 | 链接 |
+| 项目 | 用途 | 地址 |
 | --- | --- | --- |
-| ComfyUI-SolAttn_triton | `SolAttnPatch` 加速节点 | [GitHub](https://github.com/kijai/ComfyUI-SolAttn_triton) |
 | Comfyui_Minimax_h3_latent_Upscaler | H3 3D latent 放大节点 | [GitHub](https://github.com/LBH-123-AI/Comfyui_Minimax_h3_latent_Upscaler) |
-| Minimax_h3_latent_Upscaler | latent 放大权重 | [Hugging Face](https://huggingface.co/LBH-123-AI/Minimax_h3_latent_Upscaler) |
-| ComfyUI-H3-Motion-Context | 连续动作帧与原声音频续接 | [GitHub](https://github.com/NikoDemon80/ComfyUI-H3-Motion-Context) |
-| ComfyUI-KJNodes（可选） | `tiny_vae` 实时预览 | [GitHub](https://github.com/kijai/ComfyUI-KJNodes) |
+| Minimax_h3_latent_Upscaler | Latent 放大权重 | [Hugging Face](https://huggingface.co/LBH-123-AI/Minimax_h3_latent_Upscaler) |
+| ComfyUI-H3-Motion-Context | 动作帧与原声音频衔接 | [GitHub](https://github.com/NikoDemon80/ComfyUI-H3-Motion-Context) |
+| ComfyUI-SolAttn_triton | Patch Sol-Attn 注意力后端 | [GitHub](https://github.com/kijai/ComfyUI-SolAttn_triton) |
+| ComfyUI-KJNodes | Tiny VAE 实时预览 | [GitHub](https://github.com/kijai/ComfyUI-KJNodes) |
+| MiniMax H3 | 官方模型与提示词资料 | [GitHub](https://github.com/MiniMax-AI/MiniMax-H3) |
 
-实时预览使用 KJ Preview Override：采样过程中会发送中间 latent 的预览帧；配置为多帧预览时会发送动画 WebP 或 MP4，Studio 监看器会直接播放。最终视频仍以阶段完成后的 H3 解码结果为准。
+Latent 放大权重放入：
 
-聚合 Studio 不依赖固定工作流 JSON。每次运行根据当前项目和目标镜头动态构建执行图；用户可以从 Studio 导出本次真实执行图 JSON。插件仓库不再把旧的单镜、循环或五阶段模板作为运行资源。
+```text
+ComfyUI/models/latent_upscale_models/
+```
 
-Studio 支持 1-5 个独立镜头轨道：每个镜头可以单独生成、重试、保存和参与合成。独立切镜不需要前镜结果；尾帧续接和 Motion Context 只读取轨道上当前镜头前面的镜头。阶段视频、最终视频和报告按项目保存策略写入 `ComfyUI/output/xyue_h3/<项目名称>/`。
+Tiny VAE 文件放入：
 
-聚合 UI 的“承接上一镜尾帧”只确定尾帧来源，不会自动切换生成类型。选择多参考模式时，前一镜视频尾帧以 `@尾帧` 加入当前镜头素材包；选择首帧生视频模式时，同一尾帧连接当前镜头硬首帧入口。
+```text
+ComfyUI/models/vae_approx/
+```
 
-音频素材节点使用 ComfyUI 原生音频上传协议，`上传/选择音频` 是可上传的文件下拉框，不是自由文本。声音锚点由“角色/对象名称 + 锚点类型”组成；关闭“启用音频”时允许暂时不上传文件。
+## 项目与输出
 
-分辨率下拉直接显示输出高度和 16:9 对齐尺寸，例如 `0.4MP|480p（864×480）`、`0.9MP|720p（1280×736，32倍数近似）`、`1.0MP|768p（1344×768）` 和 `2.0MP|1080p（1920×1088，32倍数近似，实验）`。其他画面比例按同档像素预算计算，并保持宽高为 32 的倍数。
+保存设置支持项目名称、项目文件夹、阶段文件名模板、最终文件名模板和重名处理方式。默认输出位置：
 
-API 管理器不会在 ComfyUI 启动时弹出，只有点击设置页的“管理 API 配置”按钮才会打开。新配置默认最大输出为 64,000 tokens，超时留空表示无超时；端点路径可以留空，系统会按协议自动使用 `/v1/responses` 或 `/v1/chat/completions`。保存配置后可点击“一键获取模型”读取兼容服务的 `/v1/models` 列表。
+```text
+ComfyUI/output/xyue_h3/<项目名称>/
+```
+
+阶段视频、最终视频和执行报告会按当前项目设置分别保存。剪辑导出使用非破坏式流程，阶段源视频保持不变。
+
+## 相关仓库
+
+- [云端多段式 Skill](https://github.com/MikuLXK/h3-multi-stage-cloud-generation)
+- [本地多段式 Skill](https://github.com/MikuLXK/h3-multi-stage-generation)
+- [MiniMax H3 官方提示词资料](https://github.com/MiniMax-AI/MiniMax-H3)
 
 ## 验证
 
