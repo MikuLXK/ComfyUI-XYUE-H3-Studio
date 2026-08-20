@@ -11,8 +11,8 @@
         const key = "xyue-h3-studio-session:standalone";
         if (localStorage.getItem(key)) return;
         const model = {
-          baseModel: "Minimax_H3\\\\minimax_h3_fl2va_pruned_int8_convrot.safetensors",
-          referenceModel: "Minimax_H3\\\\minimax_h3_ref2va_XUELUO_int8_convrot.safetensors",
+          baseModel: "Minimax_H3\\minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+          referenceModel: "Minimax_H3\\minimax_h3_ref2va_XUELUO_int8_convrot.safetensors",
           languageModel: "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
           videoVae: "minimax_h3_video_vae_fp16.safetensors",
           audioVae: "minimax_h3_audio_vae_fp32.safetensors",
@@ -41,7 +41,7 @@
             secondWidth: 1296,
             secondHeight: 720,
             loraEnabled: true,
-            loraName: "minimax_h3\\\\minimax_h3_fl2v_lightx2v_turbo_4step_v0.1_comfy.safetensors",
+          loraName: "minimax_h3\\minimax_h3_fl2v_lightx2v_turbo_4step_v0.1_comfy.safetensors",
             loraStrength: 1,
             attentionMode: "MiniMax H3 Kitchen Attention",
             model,
