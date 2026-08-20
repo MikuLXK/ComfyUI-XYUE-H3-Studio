@@ -1,4 +1,4 @@
-"""Standalone facade node for the maintained XYUE H3 workflow templates."""
+"""Studio configuration facade node."""
 
 from __future__ import annotations
 

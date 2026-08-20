@@ -77,7 +77,7 @@ function hideWidget(widget) {
 function readConfig(widget) {
   try {
     const parsed = JSON.parse(String(widget?.value || ""));
-    if (parsed && typeof parsed === "object") return parsed;
+    if (parsed && typeof parsed === "object" && parsed.schema === "xyue-h3/studio-config-v3") return parsed;
   } catch {
     // A malformed saved value is replaced when Studio emits its first valid config.
   }
