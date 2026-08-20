@@ -9,7 +9,7 @@ const MATERIAL_LIMITS = { image: 9, video: 3, audio: 3 };
 const DEFAULT_CONFIG = {
   schema: "xyue-h3/studio-config-v3",
   stage_count: 1,
-  stage_titles: [""],
+  stage_titles: ["镜头01"],
   prompts: [""],
   durations: [5],
   transitions: ["cut"],
@@ -530,7 +530,7 @@ function installMentionPicker(document, input, getMaterials) {
       row.onclick = () => choose(item, reference);
       menu.append(row);
     });
-    document.documentElement.append(menu);
+    (document.body || document.documentElement).append(menu);
     input.__xyueMentionPickerRefresh = reposition;
   };
 
@@ -539,6 +539,7 @@ function installMentionPicker(document, input, getMaterials) {
   input.addEventListener("focus", show);
   document.defaultView?.addEventListener("resize", () => menu?.__xyueReposition?.());
   document.defaultView?.addEventListener("scroll", () => menu?.__xyueReposition?.(), { passive: true });
+  document.addEventListener("fullscreenchange", () => menu?.__xyueReposition?.());
   input.addEventListener("keydown", (event) => {
     if (!menu) return;
     const rows = [...menu.querySelectorAll("button")];

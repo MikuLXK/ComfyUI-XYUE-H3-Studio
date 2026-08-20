@@ -19,6 +19,19 @@ except ImportError:  # direct unit-test import
 
 _UNSAFE = re.compile(r"[^\w\u3400-\u9fff.()\- ]+", re.UNICODE)
 
+COLLISION_MODES = {
+    "increment": "increment",
+    "overwrite": "overwrite",
+    "block": "block",
+    "自动递增": "increment",
+    "覆盖": "overwrite",
+    "阻止": "block",
+}
+
+
+def normalize_collision(value: Any) -> str:
+    return COLLISION_MODES.get(str(value or "自动递增").strip(), "increment")
+
 
 def safe_component(value: Any, fallback: str) -> str:
     text = _UNSAFE.sub("_", str(value or "")).strip(" ._")
@@ -53,6 +66,7 @@ def output_prefix(policy: dict[str, Any] | None, *, kind: str, index: int, stage
 
 
 def save_video_with_policy(video: Any, prefix: str, *, container: str = "mp4", codec: str = "h264", collision: str = "increment") -> SavedCheckpoint:
+    collision = normalize_collision(collision)
     if collision == "increment":
         return save_stage_video(video, prefix, container, codec)
     extension = Types.VideoContainer.get_extension(container)

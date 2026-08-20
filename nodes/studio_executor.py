@@ -14,6 +14,7 @@ import folder_paths
 from ..core.aggregate_workflow import AGGREGATE_CONFIG_SCHEMA, _validate_plan
 from ..core.runtime_materials import load_material_pack
 from ..core.save_policy import output_prefix, save_video_with_policy
+from ..core.seed_policy import next_seed, normalize_seed_mode
 from ..nodes.continuation import XYUEH3ContinuationReference
 from ..nodes.generation import (
     XYUEH3Generator,
@@ -76,6 +77,14 @@ class XYUEH3StudioExecutor(io.ComfyNode):
         target = max(1, min(stage_count, int(plan.get("run_stage") or stage_count)))
         generation = dict(plan.get("generation") or {})
         stage_config = dict((generation.get("stages") or [])[target - 1])
+        raw_seed_mode = stage_config.get("seed_control")
+        if raw_seed_mode is None:
+            raw_seed_mode = stage_config.get("seed_mode")
+        if raw_seed_mode is None:
+            raw_seed_mode = "fixed" if int(stage_config.get("seed") or 0) else "random"
+        seed_mode = normalize_seed_mode(raw_seed_mode)
+        stage_config["seed"] = next_seed(stage_config.get("seed", 0), seed_mode)
+        stage_config["seed_mode"] = seed_mode
         model_config = dict(models[target - 1])
         mode = str(model_config.get("mode") or "文生视频模式")
         selector_output = XYUEH3ModeModelSelector.execute(
@@ -169,6 +178,7 @@ class XYUEH3StudioExecutor(io.ComfyNode):
             "stage_file": saved_stage.full_path if saved_stage else None,
             "final_file": final_saved.full_path if final_saved else (saved_stage.full_path if saved_stage else None),
             "seed": int(stage_config.get("seed", 0)),
+            "seed_mode": seed_mode,
             "transition": transitions[target - 1],
             "lora_enabled": bool(model_config.get("lora_enabled", True)),
             "attention_mode": model_config.get("attention_mode", "MiniMax H3 Kitchen Attention"),

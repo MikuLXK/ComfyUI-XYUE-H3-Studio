@@ -8,6 +8,7 @@ from typing import Any
 
 from .contracts import MAX_STAGES
 from .studio_config import STUDIO_CONFIG_SCHEMA, decode_config
+from .seed_policy import normalize_seed_mode
 
 
 PLUGIN_ROOT = Path(__file__).parents[1]
@@ -121,6 +122,13 @@ def _validate_plan(plan: dict[str, Any]) -> tuple[list[str], list[int], int, lis
         current = generation_stages[index]
         if previous.get("aspect") != current.get("aspect") or previous.get("resolution") != current.get("resolution"):
             raise ValueError(f"第 {index + 1} 镜 Motion Context 必须与前镜使用相同初始比例和分辨率")
+    for index, stage in enumerate(generation_stages, start=1):
+        raw_mode = stage.get("seed_mode", stage.get("seed_control"))
+        if raw_mode is None:
+            raw_mode = "fixed" if int(stage.get("seed") or 0) else "random"
+        mode = normalize_seed_mode(raw_mode)
+        if stage.get("seed_mode") is not None or stage.get("seed_control") is not None:
+            stage["seed_mode"] = mode
     target = int(plan.get("run_stage") or stage_count)
     if not 1 <= target <= stage_count:
         raise ValueError("当前目标镜头编号无效")
@@ -173,6 +181,7 @@ def build_aggregate_workflow(plan: dict[str, Any]) -> tuple[dict[str, Any], dict
         "transitions": transitions,
         "lora_enabled": [bool(model.get("lora_enabled", True)) for model in models],
         "attention_modes": [str(model.get("attention_mode") or "MiniMax H3 Kitchen Attention") for model in models],
+        "seed_modes": [str((stage.get("seed_mode") or stage.get("seed_control") or "random")) for stage in (execution_plan.get("generation") or {}).get("stages", [])],
         "dependencies": dependencies,
         "execution": "direct_studio_executor",
         "composition": dict(plan.get("composition") or {}),

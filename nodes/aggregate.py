@@ -29,7 +29,7 @@ class XYUEH3AggregateWorkflow(io.ComfyNode):
                         {
                             "schema": "xyue-h3/studio-config-v3",
                             "stage_count": 1,
-                            "stage_titles": [""],
+                            "stage_titles": ["镜头01"],
                             "prompts": [""],
                             "durations": [5],
                             "transitions": ["cut"],
@@ -58,7 +58,7 @@ class XYUEH3AggregateWorkflow(io.ComfyNode):
                                 "project_folder": "当前项目",
                                 "stage_pattern": "{name}_{index:02d}",
                                 "final_pattern": "{name}_最终",
-                                "collision": "increment",
+                                "collision": "自动递增",
                                 "save_stage_videos": True,
                                 "save_final_video": True,
                                 "save_report": True,

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+import folder_paths
+
 from ..nodes.assets import (
     XYUEH3AudioAsset,
     XYUEH3AudioManager,
@@ -22,6 +24,9 @@ def load_material_pack(overrides: list[dict[str, Any]] | None) -> dict[str, Any]
             continue
         kind = str(item.get("kind") or "")
         if kind in grouped:
+            filename = str(item["file"])
+            if not folder_paths.exists_annotated_filepath(filename):
+                raise ValueError(f"启用素材无法读取：{filename}")
             grouped[kind].append(dict(item))
 
     images = []

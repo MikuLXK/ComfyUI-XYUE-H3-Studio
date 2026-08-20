@@ -64,3 +64,10 @@ def test_dynamic_graph_contains_previous_resume_for_motion():
 def test_configured_graph_is_not_a_template_file():
     workflow, _ = build_aggregate_workflow(_plan(count=1, target=1, execution=[1]))
     assert workflow["extra"]["xyue_h3_execution_graph"]["source"] == "studio-config-v3"
+
+
+def test_material_overrides_are_carried_into_direct_execution():
+    plan = _plan(count=1, target=1, execution=[1])
+    plan["material_overrides"] = [{"kind": "image", "file": "example.png", "enabled": True}]
+    workflow, _ = build_aggregate_workflow(plan)
+    assert '"material_overrides":[{"kind":"image","file":"example.png","enabled":true}]' in workflow["nodes"][0]["widgets_values"][0]
