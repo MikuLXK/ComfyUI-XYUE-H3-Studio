@@ -29,8 +29,8 @@ class XYUEH3AggregateWorkflow(io.ComfyNode):
                         {
                             "schema": "xyue-h3/studio-config-v3",
                             "stage_count": 1,
-                            "stage_titles": ["云海问剑"],
-                            "prompts": ["integrated_multimodal_description: [Shot 1] ...\n\noverall_soundscape: ...\n\nnon_diegetic_music: ..."],
+                            "stage_titles": [""],
+                            "prompts": [""],
                             "durations": [5],
                             "transitions": ["cut"],
                             "models": [{
