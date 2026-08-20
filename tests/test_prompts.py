@@ -74,6 +74,13 @@ def test_keyframe_aliases_compile_without_material_registry():
         raise AssertionError("I2VA must not treat Ref2VA aliases as native keyframes")
 
 
+def test_i2va_tail_alias_refers_to_the_connected_previous_video_tail():
+    compiled, used = compile_draft("从@尾帧继续动作。", "I2VA", None, 4)
+
+    assert "<Picture 1>" in compiled
+    assert used == ("@尾帧",)
+
+
 def test_ref_mode_still_rejects_unavailable_picture_placeholder():
     registry = {"alias_to_token": {}, "token_to_alias": {}}
     try:

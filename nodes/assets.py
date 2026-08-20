@@ -148,7 +148,12 @@ class XYUEH3ImageAsset(io.ComfyNode):
                 io.Combo.Input("role", display_name="图片用途", options=list(IMAGE_ROLES), default=IMAGE_ROLES[0]),
                 io.Combo.Input("fit_mode", display_name="适配策略", options=list(IMAGE_FIT_MODES), default="保持原图"),
             ],
-            outputs=[IMAGE_ITEM.Output(display_name="图片素材项"), io.Image.Output(display_name="图片"), io.Mask.Output(display_name="遮罩")],
+            outputs=[
+                IMAGE_ITEM.Output(display_name="图片素材项"),
+                io.Image.Output(display_name="图片"),
+                io.Mask.Output(display_name="遮罩"),
+                io.Image.Output(display_name="参考图"),
+            ],
         )
 
     @classmethod
@@ -165,7 +170,7 @@ class XYUEH3ImageAsset(io.ComfyNode):
                 "role": str(role),
                 "fit_mode": str(fit_mode),
             }
-            return io.NodeOutput(item, None, None)
+            return io.NodeOutput(item, None, None, None)
         loaded, mask = comfy_nodes.LoadImage().load_image(image)
         original_height, original_width = int(loaded.shape[1]), int(loaded.shape[2])
         loaded = _fit_image(loaded, str(fit_mode))
@@ -179,7 +184,7 @@ class XYUEH3ImageAsset(io.ComfyNode):
             "role": str(role),
             "fit_mode": str(fit_mode),
         }
-        return io.NodeOutput(item, loaded, mask)
+        return io.NodeOutput(item, loaded, mask, loaded if enabled else None)
 
     @classmethod
     def fingerprint_inputs(cls, image, enabled, alias_mode, role, fit_mode):
@@ -242,7 +247,13 @@ class XYUEH3VideoAsset(io.ComfyNode):
                 io.Float.Input("duration", display_name="裁剪时长（0=全片）", default=0.0, min=0.0, max=3600.0, step=0.01),
                 io.Boolean.Input("include_audio", display_name="包含原声", default=False, label_on="包含", label_off="忽略"),
             ],
-            outputs=[VIDEO_ITEM.Output(display_name="视频素材项"), io.Video.Output(display_name="视频"), io.Image.Output(display_name="尾帧"), io.Audio.Output(display_name="原声")],
+            outputs=[
+                VIDEO_ITEM.Output(display_name="视频素材项"),
+                io.Video.Output(display_name="视频"),
+                io.Image.Output(display_name="尾帧"),
+                io.Audio.Output(display_name="原声"),
+                io.Image.Output(display_name="参考帧"),
+            ],
         )
 
     @classmethod
@@ -261,7 +272,7 @@ class XYUEH3VideoAsset(io.ComfyNode):
                 "role": str(role),
                 "fps": 24.0,
             }
-            return io.NodeOutput(item, None, None, None)
+            return io.NodeOutput(item, None, None, None, None)
         source = LoadVideo.execute(video)[0]
         trimmed = _trim_video(source, float(start_time), float(duration))
         frames, audio, fps = _video_components(trimmed)
@@ -279,7 +290,7 @@ class XYUEH3VideoAsset(io.ComfyNode):
             "fps": fps,
         }
         tail = frames[-1:].contiguous()
-        return io.NodeOutput(item, trimmed, tail, audio)
+        return io.NodeOutput(item, trimmed, tail, audio, frames if enabled else None)
 
     @classmethod
     def fingerprint_inputs(cls, video, enabled, alias_mode, role, start_time, duration, include_audio):
@@ -348,7 +359,11 @@ class XYUEH3AudioAsset(io.ComfyNode):
                 io.Float.Input("gain_db", display_name="增益 dB", default=0.0, min=-24.0, max=24.0, step=0.1),
                 io.Boolean.Input("normalize", display_name="峰值归一化", default=False, label_on="归一化", label_off="原始"),
             ],
-            outputs=[AUDIO_ITEM.Output(display_name="音频素材项"), io.Audio.Output(display_name="音频")],
+            outputs=[
+                AUDIO_ITEM.Output(display_name="音频素材项"),
+                io.Audio.Output(display_name="音频"),
+                io.Audio.Output(display_name="参考音频"),
+            ],
         )
 
     @classmethod
@@ -367,7 +382,7 @@ class XYUEH3AudioAsset(io.ComfyNode):
                 "anchor_name": str(anchor_name).strip(),
                 "anchor_label": f"{str(anchor_name).strip()}｜{str(anchor_type)}",
             }
-            return io.NodeOutput(item, None)
+            return io.NodeOutput(item, None, None)
         path = folder_paths.get_annotated_filepath(audio)
         waveform, sample_rate = load_audio(path)
         if waveform.ndim == 1:
@@ -391,7 +406,7 @@ class XYUEH3AudioAsset(io.ComfyNode):
             "anchor_name": str(anchor_name).strip(),
             "anchor_label": f"{str(anchor_name).strip()}｜{str(anchor_type)}",
         }
-        return io.NodeOutput(item, audio_data)
+        return io.NodeOutput(item, audio_data, audio_data if enabled else None)
 
     @classmethod
     def fingerprint_inputs(cls, audio, enabled, alias_mode, anchor_type, anchor_name, start_time, duration, gain_db, normalize):

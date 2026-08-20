@@ -121,10 +121,10 @@ function controlState() {
   const config = parseMultiStageConfig(widget(configNode, "config_text")?.value);
   const serializedController = Array.isArray(controller?.widgets_values) ? controller.widgets_values : [];
   const configuredStageCount = Number(widget(controller, "stage_count")?.value ?? serializedController[11] ?? serializedController[16] ?? 3);
-  const configuredAcceleration = String(widget(acceleration, "mode")?.value || acceleration?.widgets_values?.[0] || "不启用");
+  const configuredAcceleration = Boolean(widget(acceleration, "enabled")?.value ?? acceleration?.widgets_values?.[0]);
   return {
     stageCount: Math.max(1, Math.min(MAX_STAGES, Number(config?.stage_count || configuredStageCount || 3))),
-    accelerationMode: String(config?.acceleration?.global_mode || configuredAcceleration || "不启用"),
+    accelerationEnabled: Boolean(config?.acceleration?.enabled ?? configuredAcceleration),
   };
 }
 
@@ -206,7 +206,13 @@ function applyMultiStageConfigToCanvas({ notify = false } = {}) {
         audio_steps: stage.audio_steps,
         scheduler: stage.scheduler,
         reference_size: stage.reference_size,
-        sampling_preset: sampling.sampling_preset || stage.sampling_preset,
+        sampling_mode: sampling.sampling_mode,
+        coarse_steps: sampling.coarse_steps,
+        upscale_factor: sampling.upscale_factor,
+        sigma_extra_steps: sampling.sigma_extra_steps,
+        sigma_start: sampling.sigma_start,
+        sigma_end: sampling.sigma_end,
+        sigma_spacing: sampling.sigma_spacing,
         stage_name: STAGE_MARKERS[index],
       }) || changed;
     });
@@ -225,13 +231,19 @@ function applyMultiStageConfigToCanvas({ notify = false } = {}) {
         audio_steps: global.audio_steps,
         scheduler: global.scheduler,
         reference_size: global.reference_size,
-        sampling_preset: global.sampling?.sampling_preset || global.sampling_preset,
+        sampling_mode: global.sampling?.sampling_mode,
+        coarse_steps: global.sampling?.coarse_steps,
+        upscale_factor: global.sampling?.upscale_factor,
+        sigma_extra_steps: global.sampling?.sigma_extra_steps,
+        sigma_start: global.sampling?.sigma_start,
+        sigma_end: global.sampling?.sigma_end,
+        sigma_spacing: global.sampling?.sigma_spacing,
       }) || changed;
     }
 
     const acceleration = graphNodes().find((node) => node.type === "XYUE_H3_GlobalAccelerationManager");
     if (acceleration) {
-      changed = setWidget(acceleration, "mode", config.acceleration?.global_mode) || changed;
+      changed = setWidget(acceleration, "enabled", config.acceleration?.enabled) || changed;
     }
     changed = syncControlModes() || changed;
     lastAppliedConfigSignature = signature;
@@ -296,9 +308,8 @@ function syncControlModes() {
       }
     }
     for (const node of graphNodes()) {
-      const modes = node.properties?.xyue_acceleration_modes;
-      if (!Array.isArray(modes) || !modes.length) continue;
-      changed = setAutomaticMute(node, "acceleration", !modes.includes(state.accelerationMode)) || changed;
+      if (!node.properties?.xyue_acceleration_branch) continue;
+      changed = setAutomaticMute(node, "acceleration", !state.accelerationEnabled) || changed;
     }
   } finally {
     syncingControlModes = false;

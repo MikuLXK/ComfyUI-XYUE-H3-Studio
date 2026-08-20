@@ -30,7 +30,7 @@ MODEL_PROFILE_SCHEMA: Final = "xyue-h3/model-profile-v1"
 GENERATION_PROFILE_SCHEMA: Final = "xyue-h3/generation-profile-v1"
 STUDIO_CONTROL_SCHEMA: Final = "xyue-h3/studio-control-v1"
 GLOBAL_LORA_CONTROL_SCHEMA: Final = "xyue-h3/global-lora-control-v1"
-GLOBAL_ACCELERATION_CONTROL_SCHEMA: Final = "xyue-h3/global-acceleration-control-v1"
+GLOBAL_ACCELERATION_CONTROL_SCHEMA: Final = "xyue-h3/sol-attn-control-v1"
 MULTI_STAGE_CONFIG_SCHEMA: Final = "xyue.h3.multi-stage-cloud-config/v1"
 MENTION_REGISTRY_SCHEMA: Final = "xyue-h3/mention-registry-v1"
 
@@ -86,13 +86,6 @@ AUDIO_ANCHOR_TYPES: Final = (
 )
 ROLES: Final = IMAGE_ROLES + VIDEO_ROLES + AUDIO_ANCHOR_TYPES
 ALIAS_MODES: Final = ("@文件名", "@图片N", "@视频N", "@音频N")
-GLOBAL_ACCELERATION_MODES: Final = ("不启用", "模式1", "模式2", "模式3")
-GLOBAL_ACCELERATION_MODE_ALIASES: Final = {
-    "不启用": "不启用", "跟随阶段": "不启用", "全局关闭": "不启用",
-    "模式1": "模式1", "模式1：TE加速": "模式1", "全局加速": "模式1",
-    "模式2": "模式2", "模式2：HQ参考": "模式2",
-    "模式3": "模式3", "模式3：实验低显存": "模式3", "模式3：加速ing": "模式3",
-}
 IMAGE_FIT_MODES: Final = ("保持原图", "居中裁剪", "留边适配")
 SCHEDULERS: Final = ("simple", "beta", "normal")
 STEPS: Final = (8, 10, 12, 15, 20)
@@ -126,7 +119,3 @@ def normalize_mode(mode: str) -> str:
         if key.lower() in value.lower():
             return key
     raise ValueError(f"不支持的 H3 模式：{mode}")
-
-
-def normalize_acceleration_mode(mode: str) -> str:
-    return GLOBAL_ACCELERATION_MODE_ALIASES.get(str(mode or GLOBAL_ACCELERATION_MODES[0]).strip(), str(mode))

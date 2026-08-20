@@ -6,7 +6,7 @@ import json
 import re
 from typing import Any
 
-from .contracts import MAX_STAGES, MULTI_STAGE_CONFIG_SCHEMA, normalize_acceleration_mode
+from .contracts import MAX_STAGES, MULTI_STAGE_CONFIG_SCHEMA
 
 
 _JSON_BLOCK = re.compile(r"```(?:json)?\s*(.*?)```", re.IGNORECASE | re.DOTALL)
@@ -94,9 +94,7 @@ def parse_multi_stage_config(value: Any) -> dict[str, Any]:
 
     if not isinstance(acceleration, dict):
         raise ValueError("acceleration 必须是 JSON 对象")
-    mode = normalize_acceleration_mode(acceleration.get("global_mode", acceleration.get("mode", "不启用")))
-    if mode not in {"不启用", "模式1", "模式2", "模式3"}:
-        raise ValueError(f"不支持的全局加速模式：{mode}")
+    acceleration_enabled = bool(acceleration.get("enabled", False))
 
     return {
         "schema": MULTI_STAGE_CONFIG_SCHEMA,
@@ -108,7 +106,7 @@ def parse_multi_stage_config(value: Any) -> dict[str, Any]:
             "global": dict(global_values),
             "stages": stages,
         },
-        "acceleration": {"global_mode": mode},
+        "acceleration": {"enabled": acceleration_enabled},
         "project_name": str(data.get("project_name", "")),
     }
 

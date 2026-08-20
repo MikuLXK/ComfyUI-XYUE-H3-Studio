@@ -6,7 +6,10 @@ from typing import Final
 
 
 DEFAULT_DURATION: Final = 5
-DEFAULT_STEPS: Final = 12
+DEFAULT_STEPS: Final = 4
+DEFAULT_AUDIO_STEPS: Final = 4
+DEFAULT_SIGMA_STEPS: Final = 3
+DEFAULT_DENOISE: Final = 0.3
 MIN_STEPS: Final = 1
 MIN_AUDIO_STEPS: Final = 1
 MAX_STEPS: Final = 20
@@ -26,58 +29,22 @@ REFERENCE_SIZE_OPTIONS: Final = tuple(REFERENCE_SIZE_LABELS)
 DEFAULT_SCHEDULER: Final = SCHEDULER_OPTIONS[0]
 DEFAULT_REFERENCE_SIZE: Final = REFERENCE_SIZE_OPTIONS[0]
 
-SAMPLING_PRESET_OPTIONS: Final = ("快速单次（推荐）", "高品质双段")
-SAMPLING_MODE_OPTIONS: Final = ("单次采样", "双段采样")
-DEFAULT_SAMPLING_PRESET: Final = SAMPLING_PRESET_OPTIONS[0]
-DEFAULT_SAMPLING_MODE: Final = SAMPLING_MODE_OPTIONS[0]
-
-SAMPLING_PRESETS: Final = {
-    "快速单次（推荐）": {
-        "mode": "单次采样",
-        "coarse_steps": 2,
-        "upscale_factor": 1.0,
-        "refine_pass": False,
-        "extend_sigmas": 0,
-    },
-    "高品质双段": {
-        "mode": "双段采样",
-        "coarse_steps": 2,
-        "upscale_factor": 1.2,
-        "refine_pass": True,
-        "extend_sigmas": 2,
-    },
-}
-
-
-def normalize_sampling_mode(value: str) -> str:
-    """Convert the localized sampling-mode option to the internal id."""
-
-    return {"单次采样": "single", "双段采样": "dual"}.get(str(value), str(value))
-
-
 def resolve_sampling(
-    preset: str = DEFAULT_SAMPLING_PRESET,
-    mode: str = DEFAULT_SAMPLING_MODE,
-    coarse_steps: int = 2,
-    upscale_factor: float = 1.0,
-    refine_pass: bool = False,
-    extend_sigmas: int = 0,
+    upscale_factor: float = 1.5,
+    sigma_steps: int = DEFAULT_SIGMA_STEPS,
+    denoise: float = DEFAULT_DENOISE,
 ) -> dict:
-    """Resolve the effective sampling parameters from a verified preset.
+    """Build the fixed H3 dual-pass topology with user-controlled intensity."""
 
-    A named preset is authoritative and overrides the individual widget values.
-    Keys: preset, mode, coarse_steps,
-    upscale_factor, refine_pass, extend_sigmas.
-    """
-
-    preset = str(preset or DEFAULT_SAMPLING_PRESET)
-    if preset in SAMPLING_PRESETS:
-        values = dict(SAMPLING_PRESETS[preset])
-        values["mode"] = normalize_sampling_mode(values["mode"])
-        return {"preset": preset, **values}
-    values = dict(SAMPLING_PRESETS[DEFAULT_SAMPLING_PRESET])
-    values["mode"] = normalize_sampling_mode(values["mode"])
-    return {"preset": DEFAULT_SAMPLING_PRESET, **values}
+    return {
+        "mode": "dual",
+        "upscale_factor": round(min(4.0, max(1.0, float(upscale_factor))), 1),
+        "sigma_steps": max(1, min(20, int(sigma_steps))),
+        "denoise": round(min(1.0, max(0.01, float(denoise))), 2),
+        "sigma_start": 0.7,
+        "sigma_end": 0.0,
+        "sigma_spacing": "cosine",
+    }
 
 
 def normalize_scheduler(value: str) -> str:
@@ -92,5 +59,5 @@ def normalize_reference_size(value: str) -> str:
     return REFERENCE_SIZE_LABELS.get(str(value), str(value))
 
 
-def sampler_for_acceleration(mode: str) -> str:
+def sampler_for_acceleration(enabled: bool) -> str:
     return "euler"

@@ -16,28 +16,22 @@ if __package__ and (":" in __package__ or "\\" in __package__ or "/" in __packag
     __package__ = _runtime_package
 
 if __package__:
-    from .nodes.acceleration import ACCELERATION_NODE_CLASSES
+    from .nodes.aggregate import AGGREGATE_NODE_CLASSES
+    from .nodes.studio_executor import STUDIO_EXECUTOR_NODE_CLASSES
     from .nodes.assets import ASSET_NODE_CLASSES
-    from .nodes.checkpoints import CHECKPOINT_NODE_CLASSES
-    from .nodes.continuation import CONTINUATION_NODE_CLASSES
-    from .nodes.documents import DOCUMENT_NODE_CLASSES
-    from .nodes.generation import GENERATION_NODE_CLASSES
-    from .nodes.multi_stage import MULTI_STAGE_NODE_CLASSES
-    from .nodes.prompts import PROMPT_NODE_CLASSES
-    from .nodes.video_board import VIDEO_BOARD_NODE_CLASSES
     try:
         from .services import routes as _routes  # noqa: F401
     except (AttributeError, ImportError):
         _routes = None
 else:  # pytest imports a hyphenated custom-node directory as a bare module.
-    ACCELERATION_NODE_CLASSES = ASSET_NODE_CLASSES = CHECKPOINT_NODE_CLASSES = CONTINUATION_NODE_CLASSES = DOCUMENT_NODE_CLASSES = GENERATION_NODE_CLASSES = MULTI_STAGE_NODE_CLASSES = PROMPT_NODE_CLASSES = VIDEO_BOARD_NODE_CLASSES = []
+    AGGREGATE_NODE_CLASSES = STUDIO_EXECUTOR_NODE_CLASSES = ASSET_NODE_CLASSES = []
 
 WEB_DIRECTORY = "./web"
 
 
 class XYUEH3StudioExtension(ComfyExtension):
     async def get_node_list(self) -> list[type[io.ComfyNode]]:
-        return ACCELERATION_NODE_CLASSES + ASSET_NODE_CLASSES + CHECKPOINT_NODE_CLASSES + CONTINUATION_NODE_CLASSES + DOCUMENT_NODE_CLASSES + MULTI_STAGE_NODE_CLASSES + PROMPT_NODE_CLASSES + GENERATION_NODE_CLASSES + VIDEO_BOARD_NODE_CLASSES
+        return AGGREGATE_NODE_CLASSES + STUDIO_EXECUTOR_NODE_CLASSES + ASSET_NODE_CLASSES
 
 
 async def comfy_entrypoint() -> XYUEH3StudioExtension:
