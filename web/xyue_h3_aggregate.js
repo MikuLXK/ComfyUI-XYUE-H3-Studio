@@ -2,7 +2,7 @@ import { app } from "../../../scripts/app.js";
 
 const NODE_TYPE = "XYUE_H3_AggregateWorkflow";
 // Bump this when the embedded Studio bundle changes so an old iframe cannot hide new controls.
-const STUDIO_URL = "/xyue-h3/studio/?v=blank-16x9";
+const STUDIO_URL = "/xyue-h3/studio/?v=seed-materials-20260820";
 const FRAME_HEIGHT = 860;
 const NODE_WIDTH = 1500;
 const MATERIAL_LIMITS = { image: 9, video: 3, audio: 3 };

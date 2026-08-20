@@ -6,7 +6,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).parents[1]
-BUNDLE = ROOT / "studio_ui" / "assets" / "index-B4Zo_uyt.js"
+BUNDLE = ROOT / "studio_ui" / "assets" / "index-CleanStudio.js"
 
 
 def replace_once(text: str, old: str, new: str, label: str) -> str:
